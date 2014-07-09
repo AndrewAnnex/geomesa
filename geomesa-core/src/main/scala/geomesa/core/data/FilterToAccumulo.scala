@@ -39,7 +39,6 @@ import org.opengis.filter.spatial._
 import org.opengis.filter.temporal._
 import org.opengis.temporal.{Instant, Period => OGCPeriod}
 import scala.collection.JavaConversions._
-import org.geotools.renderer.lite.{FastBBOX}
 
 object FilterToAccumulo {
   val allTime              = new Interval(0, Long.MaxValue)
