@@ -82,11 +82,11 @@ class FilterToAccumuloTest extends Specification {
       result mustEqual ff.like(ff.property("prop"), "foo")
     }
 
-    "set the spatial predicate with a large bbox" in {
+    "set the spatial predicate to be a greater than whole world bbox" in {
       val q = ff.bbox("geom", -200.0, -100, 200, 100, CRS.toSRS(WGS84))
       val f2a = new FilterToAccumulo(sft)
       val result = f2a.visit(q)
-      result mustEqual Filter.INCLUDE
+      result.toString mustEqual "[ geom bbox POLYGON ((-200 -100, -200 100, 200 100, 200 -100, -200 -100)) ]"
     }
 
   }

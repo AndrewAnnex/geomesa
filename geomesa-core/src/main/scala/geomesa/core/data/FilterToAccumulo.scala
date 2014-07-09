@@ -238,7 +238,7 @@ class FilterToAccumulo(sft: SimpleFeatureType) {
     case op: Not   => processNot(op)
 
     // Spatial filters
-    case op: BBOX       => visitBBOX(op, acc)
+    case op: BBOX       => visitBinarySpatialOp(op, acc)
     case op: DWithin    => visitDWithin(op, acc)
     case op: Within     => visitBinarySpatialOp(op, acc)
     case op: Intersects => visitBinarySpatialOp(op, acc)
@@ -254,23 +254,13 @@ class FilterToAccumulo(sft: SimpleFeatureType) {
     case f: Filter => ff.and(acc, f)
   }
 
-  private def visitBBOX(op: BBOX, acc: Filter): Filter = {
-    val e1 = op.getExpression1.asInstanceOf[PropertyName]
-    val attr = e1.evaluate(sft).asInstanceOf[AttributeDescriptor]
-    if(!attr.getLocalName.equals(sft.getGeometryDescriptor.getLocalName)) {
-      ff.and(acc, op)
-    } else {
-      updateToIDLSafeBBOXFilter(op, acc)
-    }
-  }
-
   private def visitBinarySpatialOp(op: BinarySpatialOperator, acc: Filter): Filter = {
     val e1 = op.getExpression1.asInstanceOf[PropertyName]
     val attr = e1.evaluate(sft).asInstanceOf[AttributeDescriptor]
     if(!attr.getLocalName.equals(sft.getGeometryDescriptor.getLocalName)) {
       ff.and(acc, op)
     } else {
-      updateToAntiMeridianSafeFilter(op, acc)
+      updateToIDLSafeFilter(op, acc)
     }
   }
 
@@ -330,18 +320,20 @@ class FilterToAccumulo(sft: SimpleFeatureType) {
     }
   }
 
-  def updateToAntiMeridianSafeFilter(op: BinarySpatialOperator, acc: Filter) = {
-    //val safeOp = makeSafeFilter(op)
+  def updateToIDLSafeFilter(op: BinarySpatialOperator, acc: Filter) = {
     val e2 = op.getExpression2.asInstanceOf[Literal]
-    val geom = e2.evaluate(null, classOf[Geometry])
+    val tempGeom = e2.evaluate(null, classOf[Geometry])
+    val geom = tempGeom match {
+      case probablyIsBBox if tempGeom.isRectangle => checkBBOX(tempGeom)
+      case _ => tempGeom
+    }
     val safeGeometry = getInternationalDateLineSafeGeometry(geom)
+    spatialPredicate = safeGeometry.getEnvelope.asInstanceOf[Polygon]
     safeGeometry match {
       case p: Polygon =>
-        spatialPredicate = geom.asInstanceOf[Polygon]
         if (!geom.isRectangle) ff.and(acc, op)
         else acc
       case mp: MultiPolygon =>
-        spatialPredicate = safeGeometry.getEnvelope.asInstanceOf[Polygon]
         val polygonList = getGeometryListOf(safeGeometry)
         val filterList = polygonList.map {
           p => doCorrectSpatialCall(op, sft.getGeometryDescriptor.getLocalName, p)
@@ -350,44 +342,22 @@ class FilterToAccumulo(sft: SimpleFeatureType) {
     }
   }
 
-  def addWayPoints(g: Geometry):Geometry = {
+  def checkBBOX(g: Geometry):Geometry = {
     val gf = g.getFactory
     val geomArray = g.getCoordinates
-    val correctedGeom = makeWayPoints(geomArray)
+    val correctedGeom = addWayPoints(geomArray)
     gf.createPolygon(correctedGeom)
   }
 
-  def makeWayPoints(coords: Array[Coordinate]): Array[Coordinate] = coords match {
+  def addWayPoints(coords: Array[Coordinate]): Array[Coordinate] = coords match {
       case endCase if coords.length == 1 => coords
       case great if coords(0).x - coords(1).x > 120 =>
         val first = coords(0)
-        Array[Coordinate](first) ++ makeWayPoints(coords.drop(1).+:(new Coordinate(first.x - 120, first.y)))
+        Array[Coordinate](first) ++ addWayPoints( coords.drop(1).+:( new Coordinate(first.x - 120, first.y) ) )
       case less if coords(0).x - coords(1).x < -120 =>
         val first = coords(0)
-        Array[Coordinate](first) ++ makeWayPoints(coords.drop(1).+:(new Coordinate(first.x + 120, first.y)))
-      case _ => Array[Coordinate](coords(0)) ++ makeWayPoints(coords.drop(1))
-  }
-
-  def updateToIDLSafeBBOXFilter(op: BBOX, acc: Filter) = {
-    //val safeOp = makeSafeFilter(op)
-    val e2 = op.getExpression2.asInstanceOf[Literal]
-    val geom = e2.evaluate(null, classOf[Geometry])
-    val updatedGeom = addWayPoints(geom)
-    //make sure geom has been updated by this point
-    val safeGeometry = getInternationalDateLineSafeGeometry(updatedGeom)
-    safeGeometry match {
-      case p: Polygon =>
-        spatialPredicate = geom.asInstanceOf[Polygon]
-        if (!geom.isRectangle) ff.and(acc, op)
-        else acc
-      case mp: MultiPolygon =>
-        spatialPredicate = safeGeometry.getEnvelope.asInstanceOf[Polygon]
-        val polygonList = getGeometryListOf(safeGeometry)
-        val filterList = polygonList.map {
-          p => doCorrectSpatialCall(op, sft.getGeometryDescriptor.getLocalName, p)
-        }
-        ff.and(acc, ff.or(filterList))
-    }
+        Array[Coordinate](first) ++ addWayPoints( coords.drop(1).+:( new Coordinate(first.x + 120, first.y) ) )
+      case _ => Array[Coordinate]( coords(0) ) ++ addWayPoints( coords.drop(1) )
   }
 
   def doCorrectSpatialCall(op: BinarySpatialOperator, property: String, geom: Geometry): Filter = op match {
