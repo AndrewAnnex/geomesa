@@ -549,6 +549,7 @@
                         <jvmArg>-Xms64m</jvmArg>
                         <jvmArg>-Xmx1024m</jvmArg>
                     </jvmArgs>
+                    <recompileMode>incremental</recompileMode>
                     <args>
                         <arg>-nowarn</arg>
                         <arg>-unchecked</arg>
