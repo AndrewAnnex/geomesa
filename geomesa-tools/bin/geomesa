@@ -19,8 +19,6 @@ ACCUMULO_CONF=${ACCUMULO_HOME}/conf
 HADOOP_CLASSPATH=${HADOOP_HOME}/conf
 CLASSPATH=${ACCUMULO_CONF}:${HADOOP_CLASSPATH}
 
-JAVA_ARGS="-agentpath:/opt/devel/yourKit/yjp/bin/linux-x86-64/libyjpagent.so -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+PrintTenuringDistribution"
-
 if  [[ $1 = configure ]]; then
     SOURCE="${BASH_SOURCE[0]}"
     while [ -h "${SOURCE}" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -39,12 +37,12 @@ else
     if [[ (-z "$GEOMESA_HOME") || (-z "$ACCUMULO_HOME") ||  (-z "$HADOOP_HOME")  ]]; then
         echo "Please ensure GEOMESA_HOME, ACCUMULO_HOME, and HADOOP_HOME are set before running geomesa-tools."
     elif [[ $1 = ingest ]] && [[ (-z "$2") || ($2 = --help)  || ($2 = -help) || ($2 = help) ]]; then
-        java "${JAVA_ARGS} -cp ${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Ingest --help
+        java -cp "${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Ingest --help
     elif [[ $1 = ingest ]]; then
-        echo java "${JAVA_ARGS} -cp ${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Ingest "${@:2}"
+        java -cp "${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Ingest "${@:2}"
     elif [ -n "$*" ]; then
-        java "${JAVA_ARGS} -cp ${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Tools "$@"
+        java -cp "${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Tools "$@"
     else
-        java "${JAVA_ARGS} -cp ${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Tools --help
+        java -cp "${GEOMESA_HOME}/geomesa-tools/target/geomesa-tools-accumulo1.5-1.0.0-SNAPSHOT-shaded.jar:$CLASSPATH" org.locationtech.geomesa.tools.Tools --help
     fi
 fi
