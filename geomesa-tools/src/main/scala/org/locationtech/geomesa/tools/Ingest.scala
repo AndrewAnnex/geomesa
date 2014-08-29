@@ -161,7 +161,11 @@ class Ingest() extends Logging with AccumuloProperties {
     if ( config.maxShards.isDefined )       args.append("--" + IngestParams.SHARDS, config.maxShards.get.toString)
     // since we are not in a test script we are choosing to run the ingest
     args.append("--" + IngestParams.RUN_INGEST, "true")
-
+    if ( config.dtField.isEmpty ) {
+      // assume user has no date field to use and that there is no column of data signifying it.
+      logger.warn("Warning: no date-time field specified. Assuming that data contains no date column. \n" +
+        s"GeoMesa is defaulting to the system time for ingested features.")
+    }
     val scaldingArgs = Args(args)
     // create data store schema outside of map-reduce
     createDataStoreSchema(scaldingArgs)

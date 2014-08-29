@@ -16,25 +16,13 @@
 
 package org.locationtech.geomesa.tools
 
-import java.io.File
-import java.net.URLDecoder
 import java.util.UUID
-
 import org.apache.accumulo.core.client.ZooKeeperInstance
 import org.apache.hadoop.fs.Path
-
 import scala.util.Try
 import scala.xml.XML
 
 object Utils {
-
-  def cleanClassPathURL(url: String): String =
-    URLDecoder.decode(url, "UTF-8")
-      .replace("file:", "")
-      .replace("!", "")
-
-  def classPathUrlToAbsolutePath(url: String) =
-    new File(cleanClassPathURL(url)).getAbsolutePath
 
   object IngestParams {
     val ACCUMULO_INSTANCE   = "geomesa-tools.ingest.instance"

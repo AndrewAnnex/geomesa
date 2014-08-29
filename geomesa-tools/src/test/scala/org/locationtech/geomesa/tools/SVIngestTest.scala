@@ -18,8 +18,11 @@ package org.locationtech.geomesa.tools
 
 import com.twitter.scalding.Args
 import com.vividsolutions.jts.geom.Geometry
+import org.geotools.filter.identity.FeatureIdImpl
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.feature.AvroSimpleFeature
 import org.locationtech.geomesa.tools.Utils.IngestParams
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -34,7 +37,7 @@ class SVIngestTest extends Specification{
     Map(
       IngestParams.ID_FIELDS -> List(null),
       IngestParams.FILE_PATH -> List(null),
-      IngestParams.SFT_SPEC -> List("id:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326"),
+      IngestParams.SFT_SPEC -> List("fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326"),
       IngestParams.DT_FIELD -> List("time"),
       IngestParams.DT_FORMAT -> List("yyyy-MM-dd"),
       IngestParams.LON_ATTRIBUTE -> List("lon"),
@@ -56,7 +59,7 @@ class SVIngestTest extends Specification{
     Map(
       IngestParams.ID_FIELDS -> List(null),
       IngestParams.FILE_PATH -> List(null),
-      IngestParams.SFT_SPEC -> List("id:Double,time:Date,*geom:Geometry"),
+      IngestParams.SFT_SPEC -> List("fid:Double,time:Date,*geom:Geometry"),
       IngestParams.DT_FIELD -> List("time"),
       IngestParams.DT_FORMAT -> List("yyyy-MM-dd"),
       IngestParams.SKIP_HEADER -> List("false"),
@@ -75,114 +78,187 @@ class SVIngestTest extends Specification{
 
   "SVIngest" should {
 
-    "properly create an AvroSimpleFeature from a comma-delimited string" in {
+    "properly add attributes to an AvroSimpleFeature from a comma-delimited string" in {
       val ingest = new SVIngest(new Args(csvNormParams))
       val testString = "1325409954,2013-07-17,-90.368732,35.3155"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(3) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(4) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(4) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a tab-delimited string" in {
+    "properly add attributes to an AvroSimpleFeature from a comma-delimited string with quote wrapped fields" in {
+      val ingest = new SVIngest(new Args(csvNormParams))
+      val testString = "\"1325409954\",\"2013-07-17\",\"-90.368732\",\"35.3155\""
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
+
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(4) must beAnInstanceOf[Geometry]
+    }
+
+    "properly fail to add attributes to an AvroSimpleFeature from a comma-delimited string with mangled quote wrapped fields" in {
+      val ingest = new SVIngest(new Args(csvNormParams))
+      val testString = "\"1325409954\",2013-07-17\",\"-90.368732\",\"35.3155"
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
+
+      ingestTry must beAFailedTry
+    }
+
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string" in {
       val ingest = new SVIngest(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "1325409954\t2013-07-17\t-90.368732\t35.3155"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(3) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(4) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(4) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a comma-delimited string with no date time field or format" in {
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string with quote wrapped fields" in {
+      val ingest = new SVIngest(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val testString = "\"1325409954\"\t\"2013-07-17\"\t\"-90.368732\"\t\"35.3155\""
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
+
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(4) must beAnInstanceOf[Geometry]
+    }
+
+    "properly add attributes to an AvroSimpleFeature from a comma-delimited string with no date time field or format" in {
       val ingest = new SVIngest(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
-        .updated(IngestParams.DT_FIELD, List.empty)
-        .updated(IngestParams.SFT_SPEC, List("id:Double,lon:Double,lat:Double,*geom:Point:srid=4326"))))
+        .updated(IngestParams.DT_FIELD, List.empty)))
       val testString = "1325409954,-90.368732,35.3155"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(2) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(3) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a tab-delimited string with no date time field or format" in {
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string with no date time field or format" in {
       val ingest = new SVIngest(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
         .updated(IngestParams.DT_FIELD, List.empty)
-        .updated(IngestParams.SFT_SPEC, List("id:Double,lon:Double,lat:Double,*geom:Point:srid=4326"))
         .updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "1325409954\t-90.368732\t35.3155"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(2) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(3) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(3) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a comma-delimited string with a Point WKT geometry" in {
+    "properly add attributes to an AvroSimpleFeature from a comma-delimited string with a Point WKT geometry" in {
       val ingest = new SVIngest(new Args(csvWktParams))
       val testString = "294908082,2013-07-17,POINT(-90.161852 32.39271)"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a tab-delimited string with a Point WKT geometry" in {
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string with a Point WKT geometry" in {
       val ingest = new SVIngest(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "294908082\t2013-07-17\tPOINT(-90.161852 32.39271)"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a comma-delimited string with a Polygon WKT geometry" in {
+    "properly add attributes to an AvroSimpleFeature from a comma-delimited string with a Polygon WKT geometry" in {
       val ingest = new SVIngest(new Args(csvWktParams))
       val testString = "294908082,2013-07-17,\"POLYGON((0 0, 0 10, 10 10, 0 0))\""
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a tab-delimited string with a Polygon WKT geometry" in {
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string with a Polygon WKT geometry" in {
       val ingest = new SVIngest(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "294908082\t2013-07-17\tPOLYGON((0 0, 0 10, 10 10, 0 0))"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.Double]
-      f.get.getAttribute(1) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(2) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
+      f.getAttribute(1) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(2) must beAnInstanceOf[Geometry]
     }
 
-    "properly create an AvroSimpleFeature from a tab-delimited string with" +
+    "properly add attributes to an AvroSimpleFeature from a tab-delimited string with" +
       " a Point WKT geometry and non-standard dtformat" in {
       val ingest = new SVIngest(new Args(
-        csvNormParams.updated(IngestParams.DT_FORMAT, List("yyyy/MM/dd :HH:mm:ss:"))
-        .updated(IngestParams.DT_FIELD, List("dtg"))
-        .updated(IngestParams.SFT_SPEC, List("id:String:index=False,username:String:index=false," +
-        "userid:String:index=false,text:String:index=false,dtg:Date:index=false,*geom:Point:srid=4326:index=true"))
-        .updated(IngestParams.FORMAT, List("TSV"))))
+        csvNormParams.updated(IngestParams.DT_FORMAT, List("yyyy/MM/dd :HH:mm:ss:")).updated(IngestParams.FORMAT, List("TSV"))
+        .updated(IngestParams.SFT_SPEC, List("fid:String,username:String,userid:String,text:String,time:Date,*geom:Point:srid=4326"))))
       val testString = "0000\tgeomesa user\t823543\tGeoMesa rules!\t2014/08/13 :06:06:06:\tPoint(-78.4 38.0)"
-      val f = ingest.lineToFeature(testString)
+      val sft = SimpleFeatureTypes.createType("test_type", "fid:String,username:String,userid:String,text:String,time:Date,*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
+      val ingestTry = ingest.ingestDataToFeature(testString, f)
 
-      f.get.getAttribute(0) must beAnInstanceOf[java.lang.String]
-      f.get.getAttribute(1) must beAnInstanceOf[java.lang.String]
-      f.get.getAttribute(2) must beAnInstanceOf[java.lang.String]
-      f.get.getAttribute(3) must beAnInstanceOf[java.lang.String]
-      f.get.getAttribute(4) must beAnInstanceOf[java.util.Date]
-      f.get.getAttribute(5) must beAnInstanceOf[Geometry]
+      ingestTry must beASuccessfulTry
+
+      f.getAttribute(0) must beAnInstanceOf[java.lang.String]
+      f.getAttribute(1) must beAnInstanceOf[java.lang.String]
+      f.getAttribute(2) must beAnInstanceOf[java.lang.String]
+      f.getAttribute(3) must beAnInstanceOf[java.lang.String]
+      f.getAttribute(4) must beAnInstanceOf[java.util.Date]
+      f.getAttribute(5) must beAnInstanceOf[Geometry]
     }
 
   }
