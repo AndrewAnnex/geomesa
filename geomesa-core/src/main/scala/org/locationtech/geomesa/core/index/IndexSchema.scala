@@ -372,6 +372,12 @@ object IndexSchema extends RegexParsers with Logging {
     val dateDecoder       = buildDateDecoder(s)
     IndexEntryDecoder(geohashDecoder, dateDecoder)
   }
+
+  def getIndexMetadataDecoder(s: String) = {
+    val geohashDecoder    = buildGeohashDecoder(s)
+    val dateDecoder       = buildDateDecoder(s)
+    IndexCQMetadataDecoder(geohashDecoder, dateDecoder)
+  }
 }
 
 /**

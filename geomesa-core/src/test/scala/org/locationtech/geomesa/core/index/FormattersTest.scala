@@ -50,7 +50,7 @@ class FormattersTest extends Specification {
 
     "map a double to a string representation" in {
       val scientificText = scientificNumberFormatter.formatString(null, null, null)
-      scientificText must be equalTo "1.234568e+08"
+      scientificText must be equalTo "c19d6f3454000000"
     }
   }
 
