@@ -36,11 +36,7 @@ class GeomesaRasterFeature(id: FeatureId) extends RasterTrait with Serializable 
   private var units = None: Option[String]
   private var cachedGC = None: Option[GridCoverage2D]
 
-//  private var X = None: Option[Int]
-//  private var Y = None: Option[Int]
-//
-//  private var w = None: Option[Int]
-//  private var h = None: Option[Int]
+
 
   def setBand(b: String) = band = Some(b)
   def setResolution(d: Double) = resolution = Some(d)
@@ -53,6 +49,7 @@ class GeomesaRasterFeature(id: FeatureId) extends RasterTrait with Serializable 
     val x = data.getWidth
     val y = data.getHeight
     chunkData = Some(flattenRasterToNIO(x, y, data.getPixels(0, 0, x, y, null)))
+    //chunkData = Some(flattenRasterIncDim(x, y, data.getTransferType))
   }
 
   def setEnvelope(env: Envelope2D) = envelope = Some(env)

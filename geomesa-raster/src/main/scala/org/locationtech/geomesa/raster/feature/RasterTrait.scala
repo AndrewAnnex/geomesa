@@ -20,20 +20,23 @@ import java.nio.ByteBuffer
 
 import breeze.linalg.DenseMatrix
 
+import scala.reflect.ClassTag
+
 trait RasterTrait extends RasterDataEncoding with RasterDataDecoding {
 
 
 }
 
-trait RasterDataEncoding {
+trait RasterDataEncoding extends RasterCommons {
 
-  def encodeFlatRasterToBB(x: Int, y: Int, raster: Array[Double]): ByteBuffer = {
+  def encodeFlatRasterToBB[T: Numeric](x: Int, y: Int, raster: Array[T]): ByteBuffer = {
     val bb = ByteBuffer.allocate((x*y*8)+8)  //todo: see if allocateDirect is better?
+    val setter = getBBSetter(bb)
     bb.putInt(x)
     bb.putInt(y)
     var i = 0
     while (i < raster.length) {
-      bb.putDouble(raster(i))
+      setter(raster(i))
       i += 1
     }
     bb
@@ -47,14 +50,15 @@ trait RasterDataEncoding {
    * @param raster Array[ Array[Double] ]
    * @return ByteBuffer
    */
-  def encodeRasterToBB(x: Int, y: Int, raster: Array[Array[Double]]): ByteBuffer = {
+  def encodeRasterToBB[T: Numeric](x: Int, y: Int, raster: Array[Array[T]]): ByteBuffer = {
     val bb = ByteBuffer.allocate((x*y*8)+8)  //todo: see if allocateDirect is better?
+    val setter = getBBSetter(bb)
     bb.putInt(x)
     bb.putInt(y)
     var i, j = 0
     while (i < x) {
       while (j < y) {
-        bb.putDouble(raster(i)(j))
+        setter(raster(i)(j))
         j+=1
       }
       j = 0
@@ -71,7 +75,7 @@ trait RasterDataEncoding {
    * @param raster Array[ Array[Double] ]
    * @return Array[Byte]
    */
-  def encodeRaster(x: Int, y: Int, raster: Array[Array[Double]]): Array[Byte] = {
+  def encodeRaster[T: Numeric](x: Int, y: Int, raster: Array[Array[T]]): Array[Byte] = {
     encodeRasterToBB(x, y, raster).array()
   }
 
@@ -80,7 +84,7 @@ trait RasterDataEncoding {
    * @param raster Array[ Array[Double] ]
    * @return
    */
-  def flattenRaster(raster: Array[Array[Double]]): (Int, Int, Array[Byte]) = {
+  def flattenRaster[T: Numeric](raster: Array[Array[T]]): (Int, Int, Array[Byte]) = {
     val (x, y) = getRasterShape(raster)
     (x, y, encodeRaster(x, y, raster))
   }
@@ -90,7 +94,7 @@ trait RasterDataEncoding {
    * @param raster Array[ Array[Double] ]
    * @return Array[Byte]
    */
-  def flattenRasterIncDim(raster: Array[Array[Double]]): Array[Byte] = {
+  def flattenRasterIncDim[T: Numeric](raster: Array[Array[T]]): Array[Byte] = {
     val (x, y) = getRasterShape(raster)
     encodeRaster(x, y, raster)
   }
@@ -100,7 +104,7 @@ trait RasterDataEncoding {
    * @param raster Array[ Array[Double] ]
    * @return ByteBuffer
    */
-  def flattenRasterToNIO(raster: Array[Array[Double]]): ByteBuffer = {
+  def flattenRasterToNIO[T: Numeric](raster: Array[Array[T]]): ByteBuffer = {
     val (x, y) = getRasterShape(raster)
     encodeRasterToBB(x, y, raster)
   }
@@ -114,7 +118,7 @@ trait RasterDataEncoding {
   }
 
   /**
-   * Given a Array[ Array[Double] ], figure out the number of rows and columns
+   * Given a Array[ Array[Numeric] ], figure out the number of rows and columns
    * @param r a raster, an array of arrays, where the inner array represents
    *          a whole row of elements (one value from each column)
    * @return a tuple containing the (x, y) Dims, x is the number of rows, y is the number of cols
@@ -124,7 +128,7 @@ trait RasterDataEncoding {
    *         a 3x1 array: [[1.0],[1.0],[1.0]] must return (3, 1).
    *
    */
-  def getRasterShape(r: Array[Array[Double]]): (Int, Int) = r match {
+  def getRasterShape[T: Numeric](r: Array[Array[T]]): (Int, Int) = r match {
     case Array(_*) =>
       val y = r match {
         case is2d if (r.isDefinedAt(0) && r(0).isDefinedAt(0)) => r(0).length
@@ -137,7 +141,7 @@ trait RasterDataEncoding {
 
 }
 
-trait RasterDataDecoding {
+trait RasterDataDecoding extends RasterCommons {
 
   /**
    *  Decodes a given NIO ByteBuffer into a flat Array of Doubles
@@ -240,6 +244,32 @@ trait RasterDataDecoding {
     val y = bb.getInt
     val r = decodeRaster(x, y, bb)
     DenseMatrix.create(x, y, r)
+  }
+
+}
+
+trait RasterCommons {
+
+  def getBBSetter[T](bb: ByteBuffer) = (n: T) => n match {
+    case b: Byte   => bb.put(b)
+    case s: Short  => bb.putShort(s)
+    case i: Int    => bb.putInt(i)
+    case l: Long   => bb.putLong(l)
+    case f: Float  => bb.putFloat(f)
+    case d: Double => bb.putDouble(d)
+    case _         => throw new NotImplementedError("Unsupported Type")
+  }
+
+  def allocateRaster[T: ClassTag](x: Int, y: Int): Array[Array[T]] = Array.ofDim[T](x, y)
+
+  def getBBGetter[T](bb: ByteBuffer) = (n: T) => n match {
+    case b: Byte   => bb.get
+    case s: Short  => bb.getShort
+    case i: Int    => bb.getInt
+    case l: Long   => bb.getLong
+    case f: Float  => bb.getFloat
+    case d: Double => bb.getDouble
+    case _         => throw new NotImplementedError("Unsupported Type")
   }
 
 }

@@ -16,19 +16,11 @@
 
 package org.locationtech.geomesa.raster.feature
 
-import org.geotools.coverage.CoverageFactoryFinder
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
 class GeomesaRasterFeatureFactoryTest extends Specification {
-
-  "GeoTools must use GeomesaRasterFeatureFactory when hint is set" in {
-    GeomesaRasterFeatureFactory.init
-
-    val cf = CoverageFactoryFinder.getGridCoverageFactory(null)
-    cf.getClass mustEqual classOf[GeomesaRasterFeatureFactory]
-  }
 
 }
