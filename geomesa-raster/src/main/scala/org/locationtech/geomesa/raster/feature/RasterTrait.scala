@@ -22,6 +22,10 @@ import breeze.linalg.DenseMatrix
 
 import scala.reflect.ClassTag
 
+trait RasterTraitExtended extends RasterDataDecodingExtended with RasterDataEncodingExtended {
+
+}
+
 trait RasterTrait extends RasterDataEncoding with RasterDataDecoding {
 
 }
@@ -113,28 +117,7 @@ trait RasterDataEncoding extends RasterCommons {
   def flattenRasterToNIO(x: Int, y: Int, raster: Array[Double]): ByteBuffer = {
     encodeFlatRasterToBB(x, y, raster)
   }
-
-  /**
-   * Given a Array[ Array[Numeric] ], figure out the number of rows and columns
-   * @param r a raster, an array of arrays, where the inner array represents
-   *          a whole row of elements (one value from each column)
-   * @return a tuple containing the (x, y) Dims, x is the number of rows, y is the number of cols
-   *
-   *         must be like matrix indexing for sanity.
-   *         a 1x3 array: [[1.0, 1.0, 1.0]] must return (1, 3).
-   *         a 3x1 array: [[1.0],[1.0],[1.0]] must return (3, 1).
-   *
-   */
-  def getRasterShape[T: Numeric](r: Array[Array[T]]): (Int, Int) = r match {
-    case Array(_*) =>
-      val y = r match {
-        case is2d if (r.isDefinedAt(0) && r(0).isDefinedAt(0)) => r(0).length
-        case _ => 1
-      }
-      (r.length, y)
-    case _ =>
-      (0, 0)
-  }
+  
 
 }
 
@@ -242,9 +225,149 @@ trait RasterDataDecoding extends RasterCommons {
 
 }
 
+trait RasterDataEncodingExtended extends RasterCommons {
+
+  def encodeFlatRasterToBB[T: Numeric](x: Int, y: Int, pt: Int, raster: Array[T]): ByteBuffer = {
+    val bb = allocateRasterBuffer(x*y, raster)
+    val setter = getByteBufferSetter(bb)
+    appendRasterDimAndType(x, y, pt, bb)
+    var i = 0
+    while (i < raster.length) {
+      setter(raster(i))
+      i += 1
+    }
+    bb
+  }
+  
+  def encodeRasterToBB[T: Numeric](x: Int, y: Int, pt: Int, raster: Array[Array[T]]): ByteBuffer = {
+    val bb = allocateRasterBuffer(x*y, raster)
+    val setter = getByteBufferSetter(bb)
+    appendRasterDimAndType(x, y, pt, bb)
+    var i, j = 0
+    while (i < x) {
+      while (j < y) {
+        setter(raster(i)(j))
+        j+=1
+      }
+      j = 0
+      i+= 1
+    }
+    bb
+  }
+
+  def encodeRaster[T: Numeric](x: Int, y: Int, pt: Int, raster: Array[Array[T]]): Array[Byte] = {
+    encodeRasterToBB(x, y, pt, raster).array()
+  }
+  
+  def flattenRaster[T: Numeric](raster: Array[Array[T]]): (Int, Int, Array[Byte]) = {
+    val (x, y, pt) = getRasterEncodingInfo(raster)
+    (x, y, encodeRaster(x, y, pt, raster))
+  }
+  
+  def flattenRasterIncInfo[T: Numeric](raster: Array[Array[T]]): Array[Byte] = {
+    val (x, y, pt) = getRasterEncodingInfo(raster)
+    encodeRaster(x, y, pt, raster)
+  }
+  
+  def flattenRasterToNIO[T: Numeric](raster: Array[Array[T]]): ByteBuffer = {
+    val (x, y, pt) = getRasterEncodingInfo(raster)
+    encodeRasterToBB(x, y, pt, raster)
+  }
+
+  def flattenRasterToNIO[T: Numeric](x: Int, y: Int, raster: Array[T]): ByteBuffer = {
+    val pt = findPrimitiveTypeCode(raster)
+    encodeFlatRasterToBB(x, y, pt, raster)
+  }
+
+
+  override val rasterMetaDataSize = 12
+  override def allocateRasterBuffer(n: Int, t: Any): ByteBuffer = t match {
+    case b: Byte             => ByteBuffer.allocate(n + rasterMetaDataSize)
+    case s: Short            => ByteBuffer.allocate((n*2) + rasterMetaDataSize)
+    case i: Int              => ByteBuffer.allocate((n*4) + rasterMetaDataSize)
+    case l: Long             => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+    case f: Float            => ByteBuffer.allocate((n*4) + rasterMetaDataSize)
+    case d: Double           => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+    case a: Array[_]         => allocateRasterBuffer(n, a(0))
+    case aa: Array[Array[_]] => allocateRasterBuffer(n, aa(0))
+    case _                   => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+  }
+  
+}
+
+trait RasterDataDecodingExtended extends RasterCommons {
+  
+  def decodeRaster(x: Int, y:Int, pt: Int, bb: ByteBuffer): Array[AnyVal] = {
+    val ret = Array.ofDim[AnyVal](x*y)
+    val get = getByteBufferGetter(bb)
+    var i = 0
+    while (i < x*y) {
+      ret.update(i, get(pt))
+      i += 1
+    }
+    ret
+  }
+
+  def decodeRasterTo2D(x: Int, y:Int, pt: Int, bb: ByteBuffer): Array[Array[AnyVal]] = {
+    val ret = Array.ofDim[AnyVal](x,y)
+    val get = getByteBufferGetter(bb)
+    var i, j = 0
+    while (i < x) {
+      while (j < y) {
+        ret(i)(j) = get(pt)
+        j+=1
+      }
+      j = 0
+      i+= 1
+    }
+    ret
+  }
+  
+  def upufArrayIncInfo(arr: Array[Byte]): (Int, Int, Int, Array[AnyVal]) = {
+    upufNIOIncInfo(ByteBuffer.wrap(arr))
+  }
+  
+  def upufNIOIncInfo(bb: ByteBuffer): (Int, Int, Int, Array[AnyVal]) = {
+    val (x, y, pt) = extractRasterDimAndType(bb)
+    (x, y, pt, decodeRaster(x, y, pt, bb))
+  }
+
+  def upufNIOTo2DArray(bb: ByteBuffer): Array[Array[AnyVal]] = {
+    val (x, y, pt) = extractRasterDimAndType(bb)
+    decodeRasterTo2D(x, y, pt, bb)
+  }
+
+  def upufArrayTo2DArray(arr: Array[Byte]): Array[Array[AnyVal]] = {
+    upufNIOTo2DArray(ByteBuffer.wrap(arr))
+  }
+
+  //  def upufArrayToDMatrix(arr: Array[Byte]) = {
+//    upufNIOToDMatrix(ByteBuffer.wrap(arr))
+//  }
+  
+//  def upufNIOToDMatrix(bb: ByteBuffer) = {
+//    val (x, y, pt) = extractRasterDimAndType(bb)
+//    val r = decodeRaster(x, y, pt, bb)
+//    DenseMatrix.create[AnyVal](x, y, r)
+//  }
+
+}
+
 trait RasterCommons {
 
   val rasterMetaDataSize = 8
+  
+  def findPrimitiveTypeCode(t: Any): Int = t match {
+    case b: Byte             => 0
+    case s: Short            => 1
+    case i: Int              => 2
+    case l: Long             => 3
+    case f: Float            => 4
+    case d: Double           => 5
+    case a: Array[_]         => findPrimitiveTypeCode(a(0))
+    case aa: Array[Array[_]] => findPrimitiveTypeCode(aa(0))
+    case _                   => -1
+  }
 
   def allocateRasterBuffer(n: Int, t: Any): ByteBuffer = t match {
     case b: Byte             => ByteBuffer.allocate(n + rasterMetaDataSize)
@@ -280,6 +403,15 @@ trait RasterCommons {
     case _ => throw new NotImplementedError("Unsupported Type")
   }
 
+  def getByteBufferGetter(bb: ByteBuffer) = (pt: Int) => pt match {
+    case 0 => bb.get
+    case 1 => bb.getShort
+    case 2 => bb.getInt
+    case 3 => bb.getLong
+    case 4 => bb.getFloat
+    case 5 => bb.getDouble
+  }
+
   def appendRasterDimAndType(x: Int, y: Int, pt: Int, bb: ByteBuffer) = bb.putInt(x).putInt(y).putInt(pt)
 
   def appendRasterDimensionality(x: Int, y: Int, bb: ByteBuffer) = bb.putInt(x).putInt(y)
@@ -291,5 +423,33 @@ trait RasterCommons {
   def extractRasterDataType(bb: ByteBuffer) = bb.getInt
 
   def extractRasterDimAndType(bb: ByteBuffer): (Int, Int, Int) = (bb.getInt, bb.getInt, bb.getInt)
+
+  /**
+   * Given a Array[ Array[Numeric] ], figure out the number of rows and columns
+   * @param r a raster, an array of arrays, where the inner array represents
+   *          a whole row of elements (one value from each column)
+   * @return a tuple containing the (x, y) Dims, x is the number of rows, y is the number of cols
+   *
+   *         must be like matrix indexing for sanity.
+   *         a 1x3 array: [[1.0, 1.0, 1.0]] must return (1, 3).
+   *         a 3x1 array: [[1.0],[1.0],[1.0]] must return (3, 1).
+   *
+   */
+  def getRasterShape[T: Numeric](r: Array[Array[T]]): (Int, Int) = r match {
+    case Array(_*) =>
+      val y = r match {
+        case is2d if (r.isDefinedAt(0) && r(0).isDefinedAt(0)) => r(0).length
+        case _ => 1
+      }
+      (r.length, y)
+    case _ =>
+      (0, 0)
+  }
+
+  def getRasterEncodingInfo[T: Numeric](r: Array[Array[T]]): (Int, Int, Int) = {
+    val (x, y) = getRasterShape(r)
+    val pt = findPrimitiveTypeCode(r)
+    (x, y, pt)
+  }
 
 }

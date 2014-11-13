@@ -74,6 +74,7 @@ object TestRasterData extends Logging {
   val intChunk = Array.fill[Int](128, 128)(1)
   val floatChunk = Array.fill[Float](128, 128)(1)
   val longChunk = Array.fill[Long](128, 128)(1)
+  val doubleChunk = chunk128by128TestArray
 
   // test geometries
   val crs = DefaultGeographicCRS.WGS84

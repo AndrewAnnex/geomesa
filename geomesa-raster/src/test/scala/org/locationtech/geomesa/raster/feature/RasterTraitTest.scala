@@ -28,6 +28,114 @@ class RasterTraitTest extends Specification {
 
   val rasterFuncs = new RasterTrait { }
 
+  val rasterExtendedFuncs = new RasterTraitExtended { }
+
+  "RasterTraitExtended" should {
+
+    "flatten a chunk of type Byte into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(byteChunk)
+
+      r.length must beEqualTo(16384+12)
+    }
+
+    "flatten a chunk of type Short into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(shortChunk)
+
+      r.length must beEqualTo(32768+12)
+    }
+
+    "flatten a chunk of type Int into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(intChunk)
+
+      r.length must beEqualTo(65536+12)
+    }
+
+    "flatten a chunk of type Long into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(longChunk)
+
+      r.length must beEqualTo(131072+12)
+    }
+
+    "flatten a chunk of type Float into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(floatChunk)
+
+      r.length must beEqualTo(65536+12)
+    }
+
+    "flatten a chunk of type Double into a Array[Byte] that includes dimensionality and type" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(doubleChunk)
+
+      r.length must beEqualTo(131072+12)
+    }
+
+    "unpack and unflatten a Byte Raster to an Array[Byte]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(byteChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(0)
+
+      u.length must beEqualTo(16384)
+    }
+
+    "unpack and unflatten a Short Raster to an Array[Short]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(shortChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(1)
+
+      u.length must beEqualTo(16384)
+    }
+
+    "unpack and unflatten a Int Raster to an Array[Int]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(intChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(2)
+
+      u.length must beEqualTo(16384)
+    }
+
+    "unpack and unflatten a Long Raster to an Array[Long]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(longChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(3)
+
+      u.length must beEqualTo(16384)
+    }
+
+    "unpack and unflatten a Float Raster to an Array[Float]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(floatChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(4)
+
+      u.length must beEqualTo(16384)
+    }
+
+    "unpack and unflatten a Double Raster to an Array[Double]" in {
+      val r = rasterExtendedFuncs.flattenRasterIncInfo(doubleChunk)
+      val (x, y, t, u) = rasterExtendedFuncs.upufArrayIncInfo(r)
+
+      x must beEqualTo(128)
+      y must beEqualTo(128)
+      t must beEqualTo(5)
+
+      u.length must beEqualTo(16384)
+    }
+
+  }
+
   "RasterTrait" should {
 
     "flatten a 1 by 3 test Raster into a Array[Byte] that includes dimensionality" in {
