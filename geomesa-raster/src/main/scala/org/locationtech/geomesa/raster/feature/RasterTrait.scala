@@ -24,16 +24,14 @@ import scala.reflect.ClassTag
 
 trait RasterTrait extends RasterDataEncoding with RasterDataDecoding {
 
-
 }
 
 trait RasterDataEncoding extends RasterCommons {
 
   def encodeFlatRasterToBB[T: Numeric](x: Int, y: Int, raster: Array[T]): ByteBuffer = {
-    val bb = ByteBuffer.allocate((x*y*8)+8)  //todo: see if allocateDirect is better?
-    val setter = getBBSetter(bb)
-    bb.putInt(x)
-    bb.putInt(y)
+    val bb = allocateRasterBuffer(x*y, raster)
+    val setter = getByteBufferSetter(bb)
+    appendRasterDimensionality(x, y, bb)
     var i = 0
     while (i < raster.length) {
       setter(raster(i))
@@ -51,10 +49,9 @@ trait RasterDataEncoding extends RasterCommons {
    * @return ByteBuffer
    */
   def encodeRasterToBB[T: Numeric](x: Int, y: Int, raster: Array[Array[T]]): ByteBuffer = {
-    val bb = ByteBuffer.allocate((x*y*8)+8)  //todo: see if allocateDirect is better?
-    val setter = getBBSetter(bb)
-    bb.putInt(x)
-    bb.putInt(y)
+    val bb = allocateRasterBuffer(x*y, raster)
+    val setter = getByteBufferSetter(bb)
+    appendRasterDimensionality(x, y, bb)
     var i, j = 0
     while (i < x) {
       while (j < y) {
@@ -198,8 +195,7 @@ trait RasterDataDecoding extends RasterCommons {
    * @return tuple3
    */
   def upufNIOIncDim(bb: ByteBuffer): (Int, Int, Array[Double]) = {
-    val x = bb.getInt
-    val y = bb.getInt
+    val (x, y) = extractRasterDimensionality(bb)
     (x, y, decodeRaster(x, y, bb))
   }
 
@@ -218,8 +214,7 @@ trait RasterDataDecoding extends RasterCommons {
    * @return Array[ Array[Double] ]
    */
   def upufNIOTo2DArray(bb: ByteBuffer): Array[Array[Double]] = {
-    val x = bb.getInt
-    val y = bb.getInt
+    val (x, y) = extractRasterDimensionality(bb)
     decodeRasterTo2D(x, y, bb)
   }
 
@@ -240,8 +235,7 @@ trait RasterDataDecoding extends RasterCommons {
    * @return
    */
   def upufNIOToDMatrix(bb: ByteBuffer) = {
-    val x = bb.getInt
-    val y = bb.getInt
+    val (x, y) = extractRasterDimensionality(bb)
     val r = decodeRaster(x, y, bb)
     DenseMatrix.create(x, y, r)
   }
@@ -250,7 +244,21 @@ trait RasterDataDecoding extends RasterCommons {
 
 trait RasterCommons {
 
-  def getBBSetter[T](bb: ByteBuffer) = (n: T) => n match {
+  val rasterMetaDataSize = 8
+
+  def allocateRasterBuffer(n: Int, t: Any): ByteBuffer = t match {
+    case b: Byte             => ByteBuffer.allocate(n + rasterMetaDataSize)
+    case s: Short            => ByteBuffer.allocate((n*2) + rasterMetaDataSize)
+    case i: Int              => ByteBuffer.allocate((n*4) + rasterMetaDataSize)
+    case l: Long             => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+    case f: Float            => ByteBuffer.allocate((n*4) + rasterMetaDataSize)
+    case d: Double           => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+    case a: Array[_]         => allocateRasterBuffer(n, a(0))
+    case aa: Array[Array[_]] => allocateRasterBuffer(n, aa(0))
+    case _                   => ByteBuffer.allocate((n*8) + rasterMetaDataSize)
+  }
+
+  def getByteBufferSetter[T](bb: ByteBuffer) = (n: T) => n match {
     case b: Byte   => bb.put(b)
     case s: Short  => bb.putShort(s)
     case i: Int    => bb.putInt(i)
@@ -260,16 +268,28 @@ trait RasterCommons {
     case _         => throw new NotImplementedError("Unsupported Type")
   }
 
-  def allocateRaster[T: ClassTag](x: Int, y: Int): Array[Array[T]] = Array.ofDim[T](x, y)
+  def allocateRasterWithType[T: ClassTag](x: Int, y: Int): Array[Array[T]] = Array.ofDim[T](x, y)
 
-  def getBBGetter[T](bb: ByteBuffer) = (n: T) => n match {
-    case b: Byte   => bb.get
-    case s: Short  => bb.getShort
-    case i: Int    => bb.getInt
-    case l: Long   => bb.getLong
-    case f: Float  => bb.getFloat
-    case d: Double => bb.getDouble
-    case _         => throw new NotImplementedError("Unsupported Type")
+  def allocateRaster(x: Int, y: Int, pt: Int) = pt match {
+    case 0 => allocateRasterWithType[Byte](x, y)
+    case 1 => allocateRasterWithType[Short](x, y)
+    case 2 => allocateRasterWithType[Int](x, y)
+    case 3 => allocateRasterWithType[Long](x, y)
+    case 4 => allocateRasterWithType[Float](x, y)
+    case 5 => allocateRasterWithType[Double](x, y)
+    case _ => throw new NotImplementedError("Unsupported Type")
   }
+
+  def appendRasterDimAndType(x: Int, y: Int, pt: Int, bb: ByteBuffer) = bb.putInt(x).putInt(y).putInt(pt)
+
+  def appendRasterDimensionality(x: Int, y: Int, bb: ByteBuffer) = bb.putInt(x).putInt(y)
+
+  def appendRasterDataType(pt: Int, bb: ByteBuffer) = bb.putInt(pt)
+
+  def extractRasterDimensionality(bb: ByteBuffer): (Int, Int) = (bb.getInt, bb.getInt)
+
+  def extractRasterDataType(bb: ByteBuffer) = bb.getInt
+
+  def extractRasterDimAndType(bb: ByteBuffer): (Int, Int, Int) = (bb.getInt, bb.getInt, bb.getInt)
 
 }

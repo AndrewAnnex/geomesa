@@ -68,6 +68,13 @@ object TestRasterData extends Logging {
 
   val flattenedChunk512by512TestArray = chunk512by512TestArray.flatten
 
+  // test other types
+  val byteChunk = Array.fill[Byte](128, 128)(1)
+  val shortChunk = Array.fill[Short](128, 128)(1)
+  val intChunk = Array.fill[Int](128, 128)(1)
+  val floatChunk = Array.fill[Float](128, 128)(1)
+  val longChunk = Array.fill[Long](128, 128)(1)
+
   // test geometries
   val crs = DefaultGeographicCRS.WGS84
   val quadrantIbbox = new ReferencedEnvelope(0.0, 180.0, 0.0, 90.0, crs)

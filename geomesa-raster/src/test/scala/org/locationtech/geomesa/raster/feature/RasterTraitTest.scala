@@ -25,6 +25,7 @@ import org.specs2.runner.JUnitRunner
 class RasterTraitTest extends Specification {
 
   sequential
+
   val rasterFuncs = new RasterTrait { }
 
   "RasterTrait" should {
@@ -69,6 +70,36 @@ class RasterTraitTest extends Specification {
       val r = rasterFuncs.flattenRasterIncDim(chunk512by512TestArray)
 
       r.length must beEqualTo(2097152+8)
+    }
+
+    "flatten a chunk of type Byte into a Array[Byte] that includes dimensionality" in {
+      val r = rasterFuncs.flattenRasterIncDim(byteChunk)
+
+      r.length must beEqualTo(16384+8)
+    }
+
+    "flatten a chunk of type Short into a Array[Byte] that includes dimensionality" in {
+      val r = rasterFuncs.flattenRasterIncDim(shortChunk)
+
+      r.length must beEqualTo(32768+8)
+    }
+
+    "flatten a chunk of type Int into a Array[Byte] that includes dimensionality" in {
+      val r = rasterFuncs.flattenRasterIncDim(intChunk)
+
+      r.length must beEqualTo(65536+8)
+    }
+
+    "flatten a chunk of type Long into a Array[Byte] that includes dimensionality" in {
+      val r = rasterFuncs.flattenRasterIncDim(longChunk)
+
+      r.length must beEqualTo(131072+8)
+    }
+
+    "flatten a chunk of type Float into a Array[Byte] that includes dimensionality" in {
+      val r = rasterFuncs.flattenRasterIncDim(floatChunk)
+
+      r.length must beEqualTo(65536+8)
     }
 
     "unpack and unflatten a 1 by 3 test Raster to an Array[Double]" in {
