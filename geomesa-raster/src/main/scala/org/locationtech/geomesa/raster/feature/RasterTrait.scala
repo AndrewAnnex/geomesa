@@ -297,7 +297,7 @@ trait RasterDataEncodingExtended extends RasterCommons {
 
 trait RasterDataDecodingExtended extends RasterCommons {
   
-  def decodeRaster(x: Int, y:Int, pt: Int, bb: ByteBuffer): Array[AnyVal] = {
+  def decodeRaster(x: Int, y:Int, pt: Int, bb: ByteBuffer) = {
     val ret = Array.ofDim[AnyVal](x*y)
     val get = getByteBufferGetter(bb)
     var i = 0
@@ -332,7 +332,7 @@ trait RasterDataDecodingExtended extends RasterCommons {
     (x, y, pt, decodeRaster(x, y, pt, bb))
   }
 
-  def upufNIOTo2DArray(bb: ByteBuffer): Array[Array[AnyVal]] = {
+  def upufNIOTo2DArray(bb: ByteBuffer) = {
     val (x, y, pt) = extractRasterDimAndType(bb)
     decodeRasterTo2D(x, y, pt, bb)
   }
@@ -341,15 +341,15 @@ trait RasterDataDecodingExtended extends RasterCommons {
     upufNIOTo2DArray(ByteBuffer.wrap(arr))
   }
 
-  //  def upufArrayToDMatrix(arr: Array[Byte]) = {
-//    upufNIOToDMatrix(ByteBuffer.wrap(arr))
-//  }
+  def upufArrayToDMatrix(arr: Array[Byte]) = {
+    upufNIOToDMatrix(ByteBuffer.wrap(arr))
+  }
   
-//  def upufNIOToDMatrix(bb: ByteBuffer) = {
-//    val (x, y, pt) = extractRasterDimAndType(bb)
-//    val r = decodeRaster(x, y, pt, bb)
-//    DenseMatrix.create[AnyVal](x, y, r)
-//  }
+  def upufNIOToDMatrix(bb: ByteBuffer) = {
+    val (x, y, pt) = extractRasterDimAndType(bb)
+    val r = decodeRaster(x, y, pt, bb)
+    DenseMatrix.create(x, y, r.asInstanceOf[Array[Array[AnyVal]]])
+  }
 
 }
 
