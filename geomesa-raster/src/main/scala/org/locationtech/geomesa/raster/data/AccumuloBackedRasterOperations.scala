@@ -25,12 +25,12 @@ import org.apache.accumulo.core.data.{Key, Mutation, Value}
 import org.apache.accumulo.core.security.{ColumnVisibility, TablePermission}
 import org.apache.hadoop.io.Text
 import org.joda.time.DateTime
-import org.locationtech.geomesa.core.index.{DecodedIndex, QueryPlan}
+import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.security.AuthorizationsProvider
 import org.locationtech.geomesa.core.stats.StatWriter
 import org.locationtech.geomesa.raster.feature.Raster
 import org.locationtech.geomesa.raster.index.RasterIndexEntry
-import org.locationtech.geomesa.utils.geohash.GeoHash
+
 import scala.collection.JavaConversions._
 
 trait RasterOperations {
@@ -105,16 +105,16 @@ class AccumuloBackedRasterOperations(val connector: Connector,
 
     // TODO: Abstract number of threads
     configureBatchScanner(batchScanner, plan)
-    adaptorIterator(batchScanner.iterator)
+    adaptorIterator(batchScanner.iterator, rasterQuery.resolution.toDouble)
   }
 
   // TODO: Change to Raster??
-  def adaptorIterator(iter: java.util.Iterator[Entry[Key, Value]]): Iterator[Raster] = {
+  def adaptorIterator(iter: java.util.Iterator[Entry[Key, Value]], res: Double): Iterator[Raster] = {
     iter.map { entry =>
       val renderedImage: RenderedImage = rasterImageDeserialize(entry.getValue.get)
       val metadata: DecodedIndex = RasterIndexEntry.decodeIndexCQMetadata(entry.getKey)
 
-      Raster(renderedImage, metadata)
+      Raster(renderedImage, metadata, res)
     }
   }
 
@@ -132,10 +132,8 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   def ensureTableExists() = ensureTableExists(coverageTable)
 
   //TODO: WCS: change to our row id format in RasterIndexSchema (which needs to be created)
-  // GEOMESA-555
   private def getRow(ras: Raster) = {
-    val fauxRes = 10
-    new Text(s"~${fauxRes}~${ras.mbgh.hash}")
+    new Text(s"${lexiEncodeDoubleToString(ras.resolution)}~${ras.mbgh.hash}")
   }
 
   private def getCF(raster: Raster): Text = new Text("")
