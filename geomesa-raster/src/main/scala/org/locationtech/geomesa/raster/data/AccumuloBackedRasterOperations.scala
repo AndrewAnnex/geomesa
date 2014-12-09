@@ -69,7 +69,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   val bwConfig: BatchWriterConfig =
     new BatchWriterConfig().setMaxMemory(writeMemory).setMaxWriteThreads(writeThreads)
 
-  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner
+  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner("") //TODO: make this point to default schema
 
   private val tableOps = connector.tableOperations()
   private val securityOps = connector.securityOperations

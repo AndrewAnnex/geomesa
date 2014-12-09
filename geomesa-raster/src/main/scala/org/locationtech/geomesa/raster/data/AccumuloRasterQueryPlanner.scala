@@ -6,12 +6,12 @@ import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.utils.geohash.BoundingBox
 
 // TODO: Constructor needs info to create Row Formatter
-class AccumuloRasterQueryPlanner extends Logging {
+case class AccumuloRasterQueryPlanner(schema: String) extends Logging {
 
   def getQueryPlan(rq: RasterQuery): QueryPlan = {
     val hashes = BoundingBox.getGeoHashesFromBoundingBox(rq.bbox)
-    logger.debug(s"Planner: BBox: ${rq.bbox} has geohashes: $hashes ")
-    val res = lexiEncodeDoubleToString(rq.resolution.toDouble)
+    val res = lexiEncodeDoubleToString(rq.resolution)
+    logger.debug(s"Planner: BBox: ${rq.bbox} has geohashes: $hashes , and has encoded Resolution: $res")
 
     val rows = hashes.map { gh =>
       // TODO: Use Row Formatter here
