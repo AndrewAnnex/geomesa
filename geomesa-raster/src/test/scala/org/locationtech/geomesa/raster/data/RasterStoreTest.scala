@@ -1,15 +1,9 @@
 package org.locationtech.geomesa.raster.data
 
-import java.awt._
-import java.awt.color.ColorSpace
 import java.awt.image._
-import java.io._
-import javax.imageio.ImageIO
-import javax.media.jai.remote.SerializableRenderedImage
 
-import com.vividsolutions.jts.geom.Geometry
 import org.geotools.coverage.CoverageFactoryFinder
-import org.geotools.coverage.grid.{GridCoverageFactory, GridCoverage2D}
+import org.geotools.coverage.grid.GridCoverageFactory
 import org.geotools.factory.Hints
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
@@ -19,14 +13,9 @@ import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.index.DecodedIndex
 //import org.locationtech.geomesa.plugin.ImageUtils
 import org.locationtech.geomesa.raster.feature.Raster
-import org.locationtech.geomesa.raster.ingest.SimpleRasterIngest._
-import org.locationtech.geomesa.utils.geohash.{GeoHash, TwoGeoHashBoundingBox, BoundingBox}
-import org.opengis.coverage.grid.GridCoverage
-import org.opengis.geometry.Envelope
+import org.locationtech.geomesa.utils.geohash.BoundingBox
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
-
-import scala.collection.mutable.ListBuffer
 
 
 
@@ -35,7 +24,6 @@ class RasterStoreTest extends Specification {
 
   def createAndFillRasterStore = {
 
-    //val rs = RasterStore("user", "pass", getClass.toString, "zk", getClass.toString, "S,USA", "S,USA", true)
     val rs = RasterStore("user", "pass", "testInstance", "zk", "testTable", "SUSA", "SUSA", true)
 
     val rasterName = "testRaster"
@@ -54,14 +42,15 @@ class RasterStoreTest extends Specification {
 
     val coverage = imageToCoverage(500, 500, image.getRaster(), env, coverageFactory)
 
-    val raster = new Raster(coverage.getRenderedImage, metadata)
+    val raster = new Raster(coverage.getRenderedImage, metadata, 10.0)
 
     rs.putRaster(raster)
     rs
   }
+
   def generateQuery = {
     val bb = BoundingBox(new ReferencedEnvelope(0, 50, 0, 50, DefaultGeographicCRS.WGS84))
-    new RasterQuery(bb, "10", None, None)
+    new RasterQuery(bb, 10, None, None)
   }
 
   // stolen from elsewhere

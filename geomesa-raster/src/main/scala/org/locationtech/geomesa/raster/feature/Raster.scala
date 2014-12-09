@@ -37,7 +37,7 @@ import org.locationtech.geomesa.utils.geohash.GeohashUtils
 //                  dataType: Option[String],
 //                  band: Option[Int]) {
 
-case class Raster(chunk: RenderedImage, metadata: DecodedIndex) {
+case class Raster(chunk: RenderedImage, metadata: DecodedIndex, resolution: Double) {
   def id = metadata.id
   def name = metadata.id
   def time = new DateTime(metadata.dtgMillis.getOrElse(0L))
