@@ -86,7 +86,7 @@ class RasterFilteringIteratorTest extends Specification with Logging {
 
 
   "RasterFilteringIterator" should {
-    "Properly filter in a raster via a query" in {
+    "Properly filter in a raster via a query bbox" in {
       val tableName = getNewIteration()
       val rasterStore = createRasterStore(tableName)
 
@@ -95,7 +95,7 @@ class RasterFilteringIteratorTest extends Specification with Logging {
       rasterStore.putRaster(testRaster)
 
       //generate query
-      val query = generateQuery(0, 11, 0, 11)
+      val query = generateQuery(0, 10, 0, 10)
 
       rasterStore must beAnInstanceOf[RasterStore]
       val theIterator = rasterStore.getRasters(query)
@@ -103,7 +103,7 @@ class RasterFilteringIteratorTest extends Specification with Logging {
       theRaster must beAnInstanceOf[Raster]
     }
 
-    "Properly filter out a raster via a query" in {
+    "Properly filter out a raster via a query bbox" in {
       val tableName = getNewIteration()
       val rasterStore = createRasterStore(tableName)
 
@@ -119,7 +119,7 @@ class RasterFilteringIteratorTest extends Specification with Logging {
       theIterator.isEmpty must beTrue
     }
 
-    "Properly filter out a raster via a query and but maintain a valid raster in the results" in {
+    "Properly filter out a raster via a query bbox and but maintain a valid raster in the results" in {
       val tableName = getNewIteration()
       val rasterStore = createRasterStore(tableName)
 
@@ -157,6 +157,38 @@ class RasterFilteringIteratorTest extends Specification with Logging {
       rasterStore must beAnInstanceOf[RasterStore]
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(4)
+    }
+
+    "Properly filter in a raster via a query bbox and resolution" in {
+      val tableName = getNewIteration()
+      val rasterStore = createRasterStore(tableName)
+
+      // general setup
+      val testRaster = generateTestRaster(0, 10, 0, 10, res = 10.0)
+      rasterStore.putRaster(testRaster)
+
+      //generate query
+      val query = generateQuery(0, 10, 0, 10, res = 10.0)
+
+      rasterStore must beAnInstanceOf[RasterStore]
+      val theResults = rasterStore.getRasters(query).toList
+      theResults.length must beEqualTo(1)
+    }
+
+    "Properly filter out a raster via a query bbox and resolution" in {
+      val tableName = getNewIteration()
+      val rasterStore = createRasterStore(tableName)
+
+      // general setup
+      val testRaster = generateTestRaster(0, 10, 0, 10, res = 5.0)
+      rasterStore.putRaster(testRaster)
+
+      //generate query
+      val query = generateQuery(0, 10, 0, 10, res = 10.0)
+
+      rasterStore must beAnInstanceOf[RasterStore]
+      val theResults = rasterStore.getRasters(query).toList
+      theResults.length must beEqualTo(0)
     }
 
   }
