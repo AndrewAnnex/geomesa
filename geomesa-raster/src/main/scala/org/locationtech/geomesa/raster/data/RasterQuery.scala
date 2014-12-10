@@ -16,8 +16,6 @@
 
 package org.locationtech.geomesa.raster.data
 
-import org.geotools.geometry.jts.ReferencedEnvelope
-import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.DateTime
 import org.locationtech.geomesa.utils.geohash.{BoundingBox => GeoMesaBBox}
 
@@ -33,13 +31,7 @@ import org.locationtech.geomesa.utils.geohash.{BoundingBox => GeoMesaBBox}
 case class RasterQuery(bbox: GeoMesaBBox,
                        resolution: Double,
                        startTime: Option[DateTime],
-                       endTime: Option[DateTime]) {
+                       endTime: Option[DateTime])
 
-  def getReferencedEnvelope(): ReferencedEnvelope = {
-    val env = bbox.envelope
-    new ReferencedEnvelope(env.getMinX, env.getMaxX, env.getMinY, env.getMaxY, DefaultGeographicCRS.WGS84)
-  }
-
-}
 // TODO: WCS: include a list of bands as an optional parameter
 // ticket is GEOMESA-559

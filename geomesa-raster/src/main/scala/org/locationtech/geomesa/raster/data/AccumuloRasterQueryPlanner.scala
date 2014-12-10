@@ -6,6 +6,7 @@ import org.apache.hadoop.io.Text
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.ReferencedEnvelope
+import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.locationtech.geomesa.core._
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.iterators._
@@ -34,7 +35,7 @@ case class AccumuloRasterQueryPlanner(schema: String) extends Logging with Index
     // this will entail the generation of a Seq[IteratorSetting]
     // ticket is GEOMESA-558
     val cfg = new IteratorSetting(9001, "raster-filtering-iterator", classOf[RasterFilteringIterator])
-    configureRasterFilter(cfg, constructFilter(rq.getReferencedEnvelope(), indexSFT))
+    configureRasterFilter(cfg, constructFilter(getReferencedEnvelope(rq.bbox), indexSFT))
     configureRasterMetadataFeatureType(cfg, indexSFT)
 
     // TODO: WCS: setup a CFPlanner to match against a list of strings
@@ -57,6 +58,11 @@ case class AccumuloRasterQueryPlanner(schema: String) extends Logging with Index
     val encodedSimpleFeatureType = SimpleFeatureTypes.encodeType(featureType)
     cfg.addOption(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE, encodedSimpleFeatureType)
     cfg.encodeUserData(featureType.getUserData, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
+  }
+
+  def getReferencedEnvelope(bbox: BoundingBox): ReferencedEnvelope = {
+    val env = bbox.envelope
+    new ReferencedEnvelope(env.getMinX, env.getMaxX, env.getMinY, env.getMaxY, DefaultGeographicCRS.WGS84)
   }
 
 }
