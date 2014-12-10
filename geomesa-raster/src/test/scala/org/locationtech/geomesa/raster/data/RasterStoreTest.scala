@@ -24,7 +24,6 @@ class RasterStoreTest extends Specification {
 
   def createAndFillRasterStore = {
 
-    //val rs = RasterStore("user", "pass", getClass.toString, "zk", getClass.toString, "S,USA", "S,USA", true)
     val rs = RasterStore("user", "pass", "testInstance", "zk", "testTable", "SUSA", "SUSA", true)
 
     val rasterName = "testRaster"
@@ -48,6 +47,7 @@ class RasterStoreTest extends Specification {
     rs.putRaster(raster)
     rs
   }
+
   def generateQuery = {
     val bb = BoundingBox(new ReferencedEnvelope(0, 50, 0, 50, DefaultGeographicCRS.WGS84))
     new RasterQuery(bb, 10, None, None)
