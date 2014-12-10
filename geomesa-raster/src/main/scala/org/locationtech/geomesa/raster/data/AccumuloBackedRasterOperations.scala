@@ -105,7 +105,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
 
     // TODO: Abstract number of threads
     configureBatchScanner(batchScanner, plan)
-    adaptorIterator(batchScanner.iterator, rasterQuery.resolution.toDouble)
+    adaptorIterator(batchScanner.iterator, rasterQuery.resolution)
   }
 
   // TODO: Change to Raster??
@@ -133,7 +133,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
 
   //TODO: WCS: change to our row id format in RasterIndexSchema (which needs to be created)
   private def getRow(ras: Raster) = {
-    new Text(s"${lexiEncodeDoubleToString(ras.resolution)}~${ras.mbgh.hash}")
+    new Text(s"~${lexiEncodeDoubleToString(ras.resolution)}~${ras.mbgh.hash}")
   }
 
   private def getCF(raster: Raster): Text = new Text("")
