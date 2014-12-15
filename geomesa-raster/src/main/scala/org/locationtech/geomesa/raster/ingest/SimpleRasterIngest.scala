@@ -32,6 +32,7 @@ import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
 import org.locationtech.geomesa.core.index.DecodedIndex
+import org.locationtech.geomesa.raster.ingest.SimpleRasterIngest._
 import org.locationtech.geomesa.raster.data.AccumuloCoverageStore
 import org.locationtech.geomesa.raster.feature.Raster
 import org.locationtech.geomesa.utils.geohash.{BoundingBox, GeoHash, GeohashUtils}
@@ -72,8 +73,6 @@ object SimpleRasterIngest {
     RasterMetadata(id, envelope, mbgh, time, res, imageType, crs)
   }
 }
-
-import org.locationtech.geomesa.raster.ingest.SimpleRasterIngest._
 
 class SimpleRasterIngest(config: Map[String, Option[String]], cs: AccumuloCoverageStore) extends Logging {
 

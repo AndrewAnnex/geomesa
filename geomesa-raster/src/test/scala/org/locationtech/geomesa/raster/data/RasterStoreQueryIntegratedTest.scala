@@ -16,9 +16,9 @@
 
 package org.locationtech.geomesa.raster.data
 
-import org.locationtech.geomesa.raster.util.RasterUtils
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.raster.feature.Raster
+import org.locationtech.geomesa.raster.util.RasterUtils
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -37,7 +37,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
   "RasterStore" should {
     "create an empty RasterStore and return nothing" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       //generate query
       val query = RasterUtils.generateQuery(0, 50, 0, 50)
@@ -49,7 +49,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "create a Raster Store, populate it and run a query" in {
       val tableName = getNewIteration()
-      val theStore = RasterUtils.createRasterStore(tableName)
+      val theStore = RasterUtils.createTestRasterStore(tableName)
 
       // populate store
       val testRaster = RasterUtils.generateTestRaster(0, 50, 0, 50)
@@ -66,7 +66,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly filter in a raster via a query bbox" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster = RasterUtils.generateTestRaster(0, 10, 0, 10)
@@ -83,7 +83,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly filter out a raster via a query bbox" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster = RasterUtils.generateTestRaster(-10, -20, -10, -20)
@@ -99,7 +99,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly filter out a raster via a query bbox and maintain a valid raster in the results" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster1 = RasterUtils.generateTestRaster(-10, -20, -10, -20)
@@ -117,7 +117,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly return a group of four Rasters" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster1 = RasterUtils.generateTestRaster(40, 45, 40, 45)
@@ -139,7 +139,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly return a group of four Rasters near GeoHash boundary" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster1 = RasterUtils.generateTestRaster(0, 5, 0, 5)
@@ -161,7 +161,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly filter in a raster via a query bbox and resolution" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster = RasterUtils.generateTestRaster(0, 10, 0, 10, res = 10.0)
@@ -177,7 +177,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
     "Properly filter out a raster via a query bbox and resolution" in {
       val tableName = getNewIteration()
-      val rasterStore = RasterUtils.createRasterStore(tableName)
+      val rasterStore = RasterUtils.createTestRasterStore(tableName)
 
       // general setup
       val testRaster = RasterUtils.generateTestRaster(0, 10, 0, 10, res = 5.0)

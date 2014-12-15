@@ -1,10 +1,11 @@
 package org.locationtech.geomesa.raster.util
 
-import java.awt.image.{WritableRaster, BufferedImage, RenderedImage}
+import java.awt.image.{BufferedImage, RenderedImage, WritableRaster}
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import javax.media.jai.remote.SerializableRenderedImage
+
 import org.geotools.coverage.grid.{GridCoverage2D, GridCoverageFactory}
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
@@ -71,8 +72,7 @@ object RasterUtils {
 
   def renderedImageToGridCoverage2d(name: String, image: RenderedImage, env: Envelope): GridCoverage2D =
     defaultGridCoverageFactory.create(name, image, env)
-
-  // stolen from elsewhere
+  
   def getNewImage(width: Int, height: Int, color: Array[Int]): BufferedImage = {
     val image = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY)
     val wr = image.getRaster
@@ -86,11 +86,11 @@ object RasterUtils {
     image
   }
 
-  def imageToCoverage(width: Int, height: Int, img: WritableRaster, env: ReferencedEnvelope, cf: GridCoverageFactory) = {
+  def imageToCoverage(img: WritableRaster, env: ReferencedEnvelope, cf: GridCoverageFactory) = {
     cf.create("testRaster", img, env)
   }
 
-  def createRasterStore(tableName: String) = {
+  def createTestRasterStore(tableName: String) = {
     val rs = RasterStore("user", "pass", "testInstance", "zk", tableName, "SUSA", "SUSA", true)
     rs
   }
@@ -106,7 +106,7 @@ object RasterUtils {
     val bbox = BoundingBox(env)
     val metadata = DecodedIndex(Raster.getRasterId("testRaster"), bbox.geom, Option(ingestTime.getMillis))
     val image = getNewImage(w, h, Array[Int](255, 255, 255))
-    val coverage = imageToCoverage(w, h, image.getRaster(), env, defaultGridCoverageFactory)
+    val coverage = imageToCoverage(image.getRaster(), env, defaultGridCoverageFactory)
     new Raster(coverage.getRenderedImage, metadata, res)
   }
 
