@@ -134,7 +134,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
       rasterStore must beAnInstanceOf[RasterStore]
       val theResults = rasterStore.getRasters(query).toList
-      theResults.length must beEqualTo(0)  //TODO: Fix getMBGH, this should be 4!
+      theResults.length must beEqualTo(4)
     }
 
     "Properly return a group of four Rasters near GeoHash boundary" in {
@@ -156,7 +156,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
 
       rasterStore must beAnInstanceOf[RasterStore]
       val theResults = rasterStore.getRasters(query).toList
-      theResults.length must beEqualTo(3) //TODO: Fix getMBGH, this should be 4!
+      theResults.length must beEqualTo(4)
     }
 
     "Properly filter in a raster via a query bbox and resolution" in {
