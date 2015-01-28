@@ -21,8 +21,6 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.{BytesWritable, IOUtils, SequenceFile}
 import org.geotools.coverage.grid.GridCoverage2D
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
@@ -83,28 +81,8 @@ class RasterFilesSerialization(config: Map[String, Option[String]]) extends Rast
       val name = raster.id
       val outFile = s"$outPath/${raster.id}.seq"
       logger.debug("Save bytes into Hdfs file: " + outFile)
-      saveBytesToHdfsFile(name, bytes, outFile)
+      RasterUtils.saveBytesToHdfsFile(name, bytes, outFile, conf)
     }
     outPath
-  }
-
-  def saveBytesToHdfsFile(name: String, bytes: Array[Byte], outFile: String) {
-    val outPath = new Path(outFile)
-    val key = new BytesWritable
-    val value = new BytesWritable
-    var writer: SequenceFile.Writer = null
-
-    try {
-      val optPath = SequenceFile.Writer.file(outPath)
-      val optKey =  SequenceFile.Writer.keyClass(key.getClass)
-      val optVal =  SequenceFile.Writer.valueClass(value.getClass)
-      writer = SequenceFile.createWriter(conf, optPath, optKey, optVal)
-      writer.append(new BytesWritable(name.getBytes), new BytesWritable(bytes))
-    } catch {
-      case e: Exception =>
-        System.out.println("Cannot write to Hdfs sequence file: " + e.getMessage())
-    } finally {
-      IOUtils.closeStream(writer)
-    }
   }
 }
