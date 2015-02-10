@@ -181,7 +181,7 @@ object RasterUtils {
         val compositeX = (chunkBounds.getWidth / accumuloRasterXRes).toInt
         val compositeY = (chunkBounds.getHeight / accumuloRasterYRes).toInt
         val mosaic = allocateBufferedImage(compositeX, compositeY, theChunks.head.chunk)
-        theChunks.foreach{ chunk =>
+        theChunks.par.foreach{ chunk =>
           simpleWriteToMosaic(mosaic, chunk, compositeEnv, accumuloRasterXRes, accumuloRasterYRes)
         }
         (mosaic, count, chunkBoundsEnv)
