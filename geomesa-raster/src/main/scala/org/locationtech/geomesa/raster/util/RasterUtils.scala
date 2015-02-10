@@ -23,9 +23,11 @@ import java.util.{Hashtable => JHashtable}
 import javax.media.jai.remote.SerializableRenderedImage
 
 import com.vividsolutions.jts.geom.{Envelope => VEnvelope}
-import org.geotools.coverage.grid.GridGeometry2D
+import org.geotools.coverage.CoverageFactoryFinder
+import org.geotools.coverage.grid.{GridCoverage2D, GridGeometry2D}
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.CRS
+import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.imgscalr.Scalr._
 import org.locationtech.geomesa.raster.data.Raster
 import org.locationtech.geomesa.utils.geohash.BoundingBox
@@ -35,6 +37,8 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe._
 
 object RasterUtils {
+
+  val coverageFactory = CoverageFactoryFinder.getGridCoverageFactory(null)
 
   object IngestRasterParams {
     val ACCUMULO_INSTANCE   = "geomesa-tools.ingestraster.instance"
@@ -153,35 +157,44 @@ object RasterUtils {
 
   def cascadeBoundingBoxes(bboxes: List[BoundingBox]): BoundingBox = bboxes.reduce( (a, b) => BoundingBox.getCoveringBoundingBox(a, b) )
 
-  def mosaicChunks(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int, queryEnv: Envelope): (BufferedImage, Int) = {
+  val wholeWorld = vividToGeotools(BoundingBox(-180, -180, -90, 90).envelope)
+
+  def vividToGeotools(e: VEnvelope): ReferencedEnvelope = {
+    new ReferencedEnvelope(e.getMinX, e.getMaxX, e.getMinY, e.getMaxY, DefaultGeographicCRS.WGS84)
+  }
+
+  def mosaicChunks(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int, queryEnv: Envelope): (BufferedImage, Int, Envelope) = {
     // TODO: Add check for Iterator with only a single Raster. https://geomesa.atlassian.net/browse/GEOMESA-671
     if (chunks.isEmpty) {
-      (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), 0)
+      (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), 0, queryEnv)
     } else {
       val theChunks = chunks.toList
       val count = theChunks.length
       val chunkBounds = cascadeBoundingBoxes(theChunks.map(_.BBox))
-      val compositeEnv: VEnvelope = chunkBounds.envelope
-      val accumuloRasterXRes = theChunks.head.referencedEnvelope.getSpan(0) / theChunks.head.chunk.getWidth
-      val accumuloRasterYRes = theChunks.head.referencedEnvelope.getSpan(1) / theChunks.head.chunk.getHeight
-      val compositeX = (chunkBounds.getWidth / accumuloRasterXRes).toInt
-      val compositeY = (chunkBounds.getHeight / accumuloRasterYRes).toInt
-      val mosaicX = (queryEnv.getSpan(0) / accumuloRasterXRes).toInt
-      val mosaicY = (queryEnv.getSpan(1) / accumuloRasterYRes).toInt
-      if (mosaicX <= 0 || mosaicY <= 0) {
-        (getEmptyImage(1, 1, BufferedImage.TYPE_BYTE_GRAY), count)
+      val chunkBoundsEnv = vividToGeotools(chunkBounds.envelope)
+      if (count <= 1) {
+        (renderedImageToBufferedImage(theChunks.head.chunk), count, chunkBoundsEnv)
       } else {
+        val compositeEnv: VEnvelope = chunkBounds.envelope
+        val accumuloRasterXRes = theChunks.head.referencedEnvelope.getSpan(0) / theChunks.head.chunk.getWidth
+        val accumuloRasterYRes = theChunks.head.referencedEnvelope.getSpan(1) / theChunks.head.chunk.getHeight
+        val compositeX = (chunkBounds.getWidth / accumuloRasterXRes).toInt
+        val compositeY = (chunkBounds.getHeight / accumuloRasterYRes).toInt
         val mosaic = allocateBufferedImage(compositeX, compositeY, theChunks.head.chunk)
         theChunks.foreach{ chunk =>
           simpleWriteToMosaic(mosaic, chunk, compositeEnv, accumuloRasterXRes, accumuloRasterYRes)
         }
-        val croppedComposite = cropBuffer(mosaic, compositeEnv, queryEnv)
-        croppedComposite match {
-          case Some(b) => (scaleBufferedImage(queryWidth, queryHeight, b), count)
-          case _       => (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), count)
-        }
+        (mosaic, count, chunkBoundsEnv)
       }
     }
+  }
+
+  def mosaicChunksToCoverage(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int,
+                             queryEnv: Envelope, name: String): (GridCoverage2D, Int) = {
+    val mosaicTuple = mosaicChunks(chunks, queryWidth, queryHeight, queryEnv)
+    val coverage = coverageFactory.create(name, mosaicTuple._1, mosaicTuple._3)
+    mosaicTuple._1.flush()
+    (coverage, mosaicTuple._2)
   }
 
   def scaleBufferedImage(newWidth: Int, newHeight: Int, image: BufferedImage): BufferedImage = {
