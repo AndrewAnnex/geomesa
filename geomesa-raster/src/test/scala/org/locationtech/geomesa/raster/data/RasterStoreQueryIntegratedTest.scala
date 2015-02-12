@@ -17,7 +17,7 @@
 package org.locationtech.geomesa.raster.data
 
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.raster.RasterTestsUtils
+import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.RasterTestsUtils._
 import org.locationtech.geomesa.utils.geohash.{BoundingBox, GeoHash}
 import org.specs2.mutable.Specification
@@ -34,6 +34,8 @@ class RasterStoreQueryIntegratedTest extends Specification {
     testIteration += 1
     s"testRSQIT_Table_$testIteration"
   }
+
+  def correctRes(r: Double): Double = BigDecimal(r).round(mc).toDouble
 
   "RasterStore" should {
     "create an empty RasterStore and return nothing" in {
@@ -480,27 +482,32 @@ class RasterStoreQueryIntegratedTest extends Specification {
       theResults.length must beEqualTo(1)
     }
 
-    "Given a Full pyramid, select the top level" in {
+    "Given a simple pyramid, select the top level when doing a whole world query" in {
       val tableName = getNewIteration()
       val rasterStore = createMockRasterStore(tableName)
 
+      // expected res
+      val expectedResolution = correctRes(50.0 / 256)
+
       // general setup
-      // TODO: fix we are not correctly doing things with resolution here.
-      val qbbox = RasterTestsUtils.generateSubQuadrant(1, RasterTestsUtils.quadrant1, 1)
-      RasterTestsUtils.generateQuadTreeLevelRasters(1).map(rasterStore.putRaster)
-
-      // populate the rest
-      (2 to 15).map { i =>
-        RasterTestsUtils.generateQuadTreeLevelRasters(i).map(rasterStore.putRaster)
-      }
-
+      val testRaster1 = generateTestRaster(0, 45.0, 0, 45.0, res = 50.0 / 256)
+      rasterStore.putRaster(testRaster1)
+      val testRaster2 = generateTestRaster(0, 45.0/2, 0, 45.0/2, res = 40.0 / 256)
+      rasterStore.putRaster(testRaster2)
+      val testRaster3 = generateTestRaster(0, 45.0/4, 0, 45.0/4, res = 30.0 / 256)
+      rasterStore.putRaster(testRaster3)
+      val testRaster4 = generateTestRaster(0, 45.0/8, 0, 45.0/8, res = 20.0 / 256)
+      rasterStore.putRaster(testRaster4)
+      val testRaster5 = generateTestRaster(0, 45.0/16, 0, 45.0/16, res = 10.0 / 256)
+      rasterStore.putRaster(testRaster5)
       //generate query
-      val query = generateQuery(qbbox.minLon, qbbox.maxLon, qbbox.minLat, qbbox.maxLat)
+      val query = generateQuery(-180.0, 180.0, -90.0, 90.0)
 
       rasterStore must beAnInstanceOf[RasterStore]
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(1)
-    }.pendingUntilFixed()
+      theResults.head.resolution must beEqualTo(expectedResolution)
+    }
 
   }
 }
