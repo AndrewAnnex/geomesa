@@ -170,12 +170,27 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   }
 
   def getAvailableResolutions(): Seq[Double] = {
-  // TODO: Consider adding resolutions + extent info  https://geomesa.atlassian.net/browse/GEOMESA-645
+    // TODO: Consider adding resolutions + extent info  https://geomesa.atlassian.net/browse/GEOMESA-645
+    //    ensureTableExists(GEOMESA_RASTER_BOUNDS_TABLE)
+    //    val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths())
+    //    scanner.setRange(new Range(getBoundsRowID))
+    //    val scanResultingCQs = SelfClosingScanner(scanner).map(_.getKey.getColumnQualifier.toString)
+    //    scanResultingCQs.toSeq.distinct.map(lexiDecodeStringToDouble)
+    getResolutionAndLengthMap().keySet.toSeq.sorted
+  }
+
+  def getAvailableGeoHashLengths(): Seq[Int] = {
+    getResolutionAndLengthMap().values.toSeq.distinct
+  }
+
+  def getResolutionAndLengthMap(): Map[Double, Int] = {
     ensureTableExists(GEOMESA_RASTER_BOUNDS_TABLE)
     val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths())
     scanner.setRange(new Range(getBoundsRowID))
-    val scanResultingCQs = SelfClosingScanner(scanner).map(_.getKey.getColumnQualifier.toString)
-    scanResultingCQs.toSeq.distinct.map(lexiDecodeStringToDouble)
+    val scanResultingKeys = SelfClosingScanner(scanner).map(_.getKey).toSeq
+    val geohashlens = scanResultingKeys.map(_.getColumnFamily.toString).map(lexiDecodeStringToInt)
+    val resolutions = scanResultingKeys.map(_.getColumnQualifier.toString).map(lexiDecodeStringToDouble)
+    (resolutions zip geohashlens).toMap
   }
 
   def getGridRange(): GridEnvelope2D = {
@@ -212,9 +227,12 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   private def dateToAccTimestamp(dt: DateTime): Long =  dt.getMillis / 1000
 
   private def createBoundsMutation(raster: Raster): Mutation = {
+    // write the bounds mutation
     val mutation = new Mutation(getBoundsRowID)
     val value = bboxToValue(BoundingBox(raster.metadata.geom.getEnvelopeInternal))
-    mutation.put("", lexiEncodeDoubleToString(raster.resolution), value)
+    val resolution = lexiEncodeDoubleToString(raster.resolution)
+    val geohashlen = lexiEncodeIntToString(raster.minimumBoundingGeoHash.map( _.hash ).getOrElse("").length)
+    mutation.put(geohashlen, resolution, value)
     mutation
   }
 
