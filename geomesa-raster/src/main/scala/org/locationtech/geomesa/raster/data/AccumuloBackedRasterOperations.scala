@@ -49,6 +49,8 @@ trait RasterOperations extends StrategyHelpers {
   def putRaster(raster: Raster): Unit
   def getBounds(): BoundingBox
   def getAvailableResolutions(): Seq[Double]
+  def getAvailableGeoHashLengths(): Seq[Int]
+  def getResolutionAndGeoHashLengthMap(): Map[Double, Int]
   def getGridRange(): GridEnvelope2D
   def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage
 }
@@ -137,7 +139,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   def getRastersWithTiming(rasterQuery: RasterQuery)(implicit timings: TimingsImpl): Iterator[Raster] = {
     profile("scanning") {
       val batchScanner = connector.createBatchScanner(rasterTable, authorizationsProvider.getAuthorizations, numQThreads)
-      val plan = profile(queryPlanner.getQueryPlan(rasterQuery, getAvailableResolutions.toList), "planning")
+      val plan = profile(queryPlanner.getQueryPlan(rasterQuery, getResolutionAndGeoHashLengthMap), "planning")
       configureBatchScanner(batchScanner, plan)
       adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
     }
@@ -146,7 +148,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
   // Consider a no-op timing option to unify getRasters(WithTiming) https://geomesa.atlassian.net/browse/GEOMESA-672
   def getRasters(rasterQuery: RasterQuery): Iterator[Raster] = {
     val batchScanner = connector.createBatchScanner(rasterTable, authorizationsProvider.getAuthorizations, numQThreads)
-    val plan = queryPlanner.getQueryPlan(rasterQuery, getAvailableResolutions.toList)
+    val plan = queryPlanner.getQueryPlan(rasterQuery, getResolutionAndGeoHashLengthMap)
     configureBatchScanner(batchScanner, plan)
     adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
   }
@@ -171,19 +173,15 @@ class AccumuloBackedRasterOperations(val connector: Connector,
 
   def getAvailableResolutions(): Seq[Double] = {
     // TODO: Consider adding resolutions + extent info  https://geomesa.atlassian.net/browse/GEOMESA-645
-    //    ensureTableExists(GEOMESA_RASTER_BOUNDS_TABLE)
-    //    val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths())
-    //    scanner.setRange(new Range(getBoundsRowID))
-    //    val scanResultingCQs = SelfClosingScanner(scanner).map(_.getKey.getColumnQualifier.toString)
-    //    scanResultingCQs.toSeq.distinct.map(lexiDecodeStringToDouble)
-    getResolutionAndLengthMap().keySet.toSeq.sorted
+    getResolutionAndGeoHashLengthMap().keySet.toSeq.sorted
   }
 
   def getAvailableGeoHashLengths(): Seq[Int] = {
-    getResolutionAndLengthMap().values.toSeq.distinct
+    getResolutionAndGeoHashLengthMap().values.toSeq.distinct
   }
 
-  def getResolutionAndLengthMap(): Map[Double, Int] = {
+  def getResolutionAndGeoHashLengthMap(): Map[Double, Int] = {
+    //TODO: This needs to be a MultiMap
     ensureTableExists(GEOMESA_RASTER_BOUNDS_TABLE)
     val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths())
     scanner.setRange(new Range(getBoundsRowID))

@@ -55,6 +55,10 @@ class RasterStore(val rasterOps: RasterOperations) {
 
   def getAvailableResolutions(): Seq[Double] = rasterOps.getAvailableResolutions()
 
+  def getAvailableGeoHashLengths(): Seq[Int] = rasterOps.getAvailableGeoHashLengths()
+  
+  def getAvailabilityMap(): Map[Double, Int] = rasterOps.getResolutionAndGeoHashLengthMap()
+
   def getGridRange(): GridEnvelope2D = rasterOps.getGridRange()
 }
 

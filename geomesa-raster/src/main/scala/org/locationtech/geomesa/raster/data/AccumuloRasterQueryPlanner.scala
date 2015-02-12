@@ -19,6 +19,7 @@ package org.locationtech.geomesa.raster.data
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.IteratorSetting
+import org.apache.accumulo.core.data.{Range => ARange}
 import org.apache.hadoop.io.Text
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
@@ -43,16 +44,24 @@ import scala.collection.JavaConversions._
 // TODO: Consider adding resolutions + extent info  https://geomesa.atlassian.net/browse/GEOMESA-645
 case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging with IndexFilterHelpers {
 
-  // Dotting without the dots.
-  def shorten(set: Seq[String]): Iterator[String] = {
-    val len = set.headOption.map(_.length).getOrElse(0)
-    for {
-      i <- (1 to len-1).iterator
-      hash <- set.map(_.take(i)).distinct
-    } yield hash.take(i)
+  def modifyHashRange(hash: String, expectedLen: Int, res: String): ARange = expectedLen match {
+    case 0                                     => new ARange(new Text(s"~$res~"))
+    case lucky if expectedLen == hash.length   => new ARange(new Text(s"~$res~$hash"))
+    case shorten if expectedLen < hash.length  => new ARange(new Text(s"~$res~${hash.substring(0, expectedLen)}"))
+    case lengthen if expectedLen > hash.length => new ARange(new Text(s"~$res~$hash"), new Text(s"~$res~$hash~"))
   }
 
-  def getQueryPlan(rq: RasterQuery, availableResolutions: List[Double]): QueryPlan = {
+  def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: Map[Double, Int]): QueryPlan = {
+    val availableResolutions = resAndGeoHashMap.keys.toList.distinct.sorted
+
+    // Step 1. Pick resolution
+    val selectedRes: Double = getResolution(rq.resolution, availableResolutions)
+    val res = lexiEncodeDoubleToString(selectedRes)
+
+    // Step 2. Pick GeoHashLength, this will need to pick the smallest val if a mulitmap
+    val expectedGeoHashLen = resAndGeoHashMap.getOrElse(selectedRes, 0)
+
+    // Step 3. Given an expected Length and the query pad up or down the CAGH
     val closestAcceptableGeoHash = GeohashUtils.getClosestAcceptableGeoHash(rq.bbox)
     val bboxHashes = BoundingBox.getGeoHashesFromBoundingBox(rq.bbox)
 
@@ -72,28 +81,13 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
       case        _ => bboxHashes.toList
     }
 
-    val res = getLexicodedResolution(rq.resolution, availableResolutions)
     logger.debug(s"RasterQueryPlanner: BBox: ${rq.bbox} has geohashes: $hashes, and has encoded Resolution: $res")
 
-    // Tricks:
-    //  Step 1: We will 'dot' our GeoHashes.
-    //val dotted = shorten(hashes).toList.distinct
-
-    val r = hashes.map { gh =>
-      // TODO: leverage the RasterIndexSchema to construct the range.
-      // Step 2:  We will pad our scan ranges for each GeoHash we are descending.
-      //new org.apache.accumulo.core.data.Range(new Text(s"~$res~$gh"), new Text(s"~$res~$gh~"))
-      new org.apache.accumulo.core.data.Range(new Text(s"~$res~$gh"))
-    }.distinct
-//    } ++ dotted.map { gh =>
-//      new org.apache.accumulo.core.data.Range(new Text(s"~$res~$gh"), new Text(s"~$res~$gh~"))
-//    }}.distinct
+    val r = hashes.map{ gh => modifyHashRange(gh, expectedGeoHashLen, res) }.distinct
 
     // of the Ranges enumerated, get the merge of the overlapping Ranges
-    val rows = org.apache.accumulo.core.data.Range.mergeOverlapping(r)
+    val rows = ARange.mergeOverlapping(r)
     println(s"Buckshot: Scanning with ranges: $rows")
-
-    // Between the two approaches, we get more 'bigger' tiles and we get more smaller tiles.
 
     // setup the RasterFilteringIterator
     val cfg = new IteratorSetting(90, "raster-filtering-iterator", classOf[RasterFilteringIterator])

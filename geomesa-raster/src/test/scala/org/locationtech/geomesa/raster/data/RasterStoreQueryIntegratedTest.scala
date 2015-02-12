@@ -238,7 +238,7 @@ class RasterStoreQueryIntegratedTest extends Specification {
       rasterStore must beAnInstanceOf[RasterStore]
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(32)
-    }.pendingUntilFixed("We need to pick the correct geohashes to enumerate based on what is available")
+    }
 
     "Properly return one raster in a QLevel 1 bounding box" in {
       val tableName = getNewIteration()
@@ -479,6 +479,28 @@ class RasterStoreQueryIntegratedTest extends Specification {
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(1)
     }
+
+    "Given a Full pyramid, select the top level" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+
+      // general setup
+      // TODO: fix we are not correctly doing things with resolution here.
+      val qbbox = RasterTestsUtils.generateSubQuadrant(1, RasterTestsUtils.quadrant1, 1)
+      RasterTestsUtils.generateQuadTreeLevelRasters(1).map(rasterStore.putRaster)
+
+      // populate the rest
+      (2 to 15).map { i =>
+        RasterTestsUtils.generateQuadTreeLevelRasters(i).map(rasterStore.putRaster)
+      }
+
+      //generate query
+      val query = generateQuery(qbbox.minLon, qbbox.maxLon, qbbox.minLat, qbbox.maxLat)
+
+      rasterStore must beAnInstanceOf[RasterStore]
+      val theResults = rasterStore.getRasters(query).toList
+      theResults.length must beEqualTo(1)
+    }.pendingUntilFixed()
 
   }
 }
