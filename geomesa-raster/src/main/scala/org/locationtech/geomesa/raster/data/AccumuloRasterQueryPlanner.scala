@@ -17,6 +17,7 @@
 
 package org.locationtech.geomesa.raster.data
 
+import com.google.common.collect.ImmutableSetMultimap
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data.{Range => ARange}
@@ -51,7 +52,7 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
     case lengthen if expectedLen > hash.length => new ARange(new Text(s"~$res~$hash"), new Text(s"~$res~$hash~"))
   }
 
-  def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: Map[Double, Int]): QueryPlan = {
+  def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: ImmutableSetMultimap[Double, Int]): QueryPlan = {
     val availableResolutions = resAndGeoHashMap.keys.toList.distinct.sorted
 
     // Step 1. Pick resolution
@@ -59,7 +60,12 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
     val res = lexiEncodeDoubleToString(selectedRes)
 
     // Step 2. Pick GeoHashLength, this will need to pick the smallest val if a mulitmap
-    val expectedGeoHashLen = resAndGeoHashMap.getOrElse(selectedRes, 0)
+    val GeoHashLenList = resAndGeoHashMap.get(selectedRes).toList
+    val expectedGeoHashLen = if (GeoHashLenList.isEmpty) {
+      0
+    } else {
+      GeoHashLenList.min
+    }
 
     // Step 3. Given an expected Length and the query pad up or down the CAGH
     val closestAcceptableGeoHash = GeohashUtils.getClosestAcceptableGeoHash(rq.bbox)

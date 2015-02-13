@@ -509,5 +509,26 @@ class RasterStoreQueryIntegratedTest extends Specification {
       theResults.head.resolution must beEqualTo(expectedResolution)
     }
 
+    "Given a odd pyramid (equal resolutions at varying GeoHash precision), return the correct Availability Map" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+
+      // general setup
+      val testRaster1 = generateTestRaster(0, 45.0, 0, 45.0, res = 50.0 / 256)
+      rasterStore.putRaster(testRaster1)
+      val testRaster2 = generateTestRaster(0, 45.0/2, 0, 45.0/2, res = 40.0 / 256)
+      rasterStore.putRaster(testRaster2)
+      val testRaster3 = generateTestRaster(0, 45.0/4, 0, 45.0/4, res = 50.0 / 256)
+      rasterStore.putRaster(testRaster3)
+      val testRaster4 = generateTestRaster(0, 45.0/8, 0, 45.0/8, res = 50.0 / 256)
+      rasterStore.putRaster(testRaster4)
+
+      rasterStore must beAnInstanceOf[RasterStore]
+      val theAvailability = rasterStore.getAvailabilityMap()
+      theAvailability.keys().size() must beEqualTo(3)
+      theAvailability.keySet().size() must beEqualTo(2)
+      theAvailability.values().size() must beEqualTo(3)
+    }
+
   }
 }

@@ -19,6 +19,7 @@ package org.locationtech.geomesa.raster.data
 import java.awt.image.BufferedImage
 import java.util.Map.Entry
 
+import com.google.common.collect.ImmutableSetMultimap
 import org.apache.accumulo.core.client.{BatchWriterConfig, Connector, TableExistsException}
 import org.apache.accumulo.core.data.{Key, Mutation, Range, Value}
 import org.apache.accumulo.core.security.{Authorizations, TablePermission}
@@ -50,7 +51,7 @@ trait RasterOperations extends StrategyHelpers {
   def getBounds(): BoundingBox
   def getAvailableResolutions(): Seq[Double]
   def getAvailableGeoHashLengths(): Seq[Int]
-  def getResolutionAndGeoHashLengthMap(): Map[Double, Int]
+  def getResolutionAndGeoHashLengthMap(): ImmutableSetMultimap[Double, Int]
   def getGridRange(): GridEnvelope2D
   def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage
 }
@@ -180,7 +181,7 @@ class AccumuloBackedRasterOperations(val connector: Connector,
     getResolutionAndGeoHashLengthMap().values.toSeq.distinct
   }
 
-  def getResolutionAndGeoHashLengthMap(): Map[Double, Int] = {
+  def getResolutionAndGeoHashLengthMap(): ImmutableSetMultimap[Double, Int] = {
     //TODO: This needs to be a MultiMap
     ensureTableExists(GEOMESA_RASTER_BOUNDS_TABLE)
     val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths())
@@ -188,7 +189,9 @@ class AccumuloBackedRasterOperations(val connector: Connector,
     val scanResultingKeys = SelfClosingScanner(scanner).map(_.getKey).toSeq
     val geohashlens = scanResultingKeys.map(_.getColumnFamily.toString).map(lexiDecodeStringToInt)
     val resolutions = scanResultingKeys.map(_.getColumnQualifier.toString).map(lexiDecodeStringToDouble)
-    (resolutions zip geohashlens).toMap
+    val m = new ImmutableSetMultimap.Builder[Double, Int]()
+    (resolutions zip geohashlens).foreach(x => m.put(x._1, x._2))
+    m.build()
   }
 
   def getGridRange(): GridEnvelope2D = {
