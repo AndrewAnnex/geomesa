@@ -22,17 +22,23 @@ import java.nio.ByteBuffer
 import java.util.{Hashtable => JHashtable}
 import javax.media.jai.remote.SerializableRenderedImage
 
-import org.geotools.coverage.grid.GridGeometry2D
+import com.vividsolutions.jts.geom.{Envelope => VEnvelope}
+import org.geotools.coverage.CoverageFactoryFinder
+import org.geotools.coverage.grid.{GridCoverage2D, GridGeometry2D}
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.CRS
+import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.imgscalr.Scalr._
 import org.locationtech.geomesa.raster.data.Raster
+import org.locationtech.geomesa.utils.geohash.BoundingBox
 import org.opengis.geometry.Envelope
 
 import scala.collection.mutable.ListBuffer
 import scala.reflect.runtime.universe._
 
 object RasterUtils {
+
+  val coverageFactory = CoverageFactoryFinder.getGridCoverageFactory(null)
 
   object IngestRasterParams {
     val ACCUMULO_INSTANCE   = "geomesa-tools.ingestraster.instance"
@@ -117,29 +123,78 @@ object RasterUtils {
     }
   }
 
-  def mosaicChunks(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int, queryEnv: Envelope): (BufferedImage, Int) = {
+//  def mosaicChunks(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int, queryEnv: Envelope): (BufferedImage, Int) = {
+//    // TODO: Add check for Iterator with only a single Raster. https://geomesa.atlassian.net/browse/GEOMESA-671
+//    if (chunks.isEmpty) {
+//      (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), 0)
+//    } else {
+//      var count = 1
+//      val firstRaster = chunks.next()
+//      val accumuloRasterXRes = firstRaster.referencedEnvelope.getSpan(0) / firstRaster.chunk.getWidth
+//      val accumuloRasterYRes = firstRaster.referencedEnvelope.getSpan(1) / firstRaster.chunk.getHeight
+//      val mosaicX = (queryEnv.getSpan(0) / accumuloRasterXRes).toInt
+//      val mosaicY = (queryEnv.getSpan(1) / accumuloRasterYRes).toInt
+//      if (mosaicX <= 0 || mosaicY <= 0) {
+//        (getEmptyImage(1, 1, BufferedImage.TYPE_BYTE_GRAY), count)
+//      } else {
+//        val mosaic = allocateBufferedImage(mosaicX, mosaicY, firstRaster.chunk)
+//        writeToMosaic(mosaic, firstRaster, queryEnv, accumuloRasterXRes, accumuloRasterYRes)
+//        while (chunks.hasNext) {
+//          writeToMosaic(mosaic, chunks.next(), queryEnv, accumuloRasterXRes, accumuloRasterYRes)
+//          count += 1
+//        }
+//        (scaleBufferedImage(queryWidth, queryHeight, mosaic), count)
+//      }
+//    }
+//  }
+
+  def simpleWriteToMosaic(mosaic: BufferedImage, raster: Raster, env: VEnvelope, resX: Double, resY: Double) = {
+    val rasterEnv = raster.referencedEnvelope
+    val originX = Math.floor((rasterEnv.getMinX - env.getMinX) / resX).toInt
+    val originY = Math.floor((env.getMaxY - rasterEnv.getMaxY) / resY).toInt
+    mosaic.getRaster.setRect(originX, originY, raster.chunk.getData)
+  }
+
+  def cascadeBoundingBoxes(bboxes: List[BoundingBox]): BoundingBox = bboxes.reduce( (a, b) => BoundingBox.getCoveringBoundingBox(a, b) )
+
+  val wholeWorld = vividToGeotools(BoundingBox(-180, -180, -90, 90).envelope)
+
+  def vividToGeotools(e: VEnvelope): ReferencedEnvelope = {
+    new ReferencedEnvelope(e.getMinX, e.getMaxX, e.getMinY, e.getMaxY, DefaultGeographicCRS.WGS84)
+  }
+
+  def mosaicChunks(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int, queryEnv: Envelope): (BufferedImage, Int, Envelope) = {
     // TODO: Add check for Iterator with only a single Raster. https://geomesa.atlassian.net/browse/GEOMESA-671
     if (chunks.isEmpty) {
-      (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), 0)
+      (getEmptyImage(queryWidth, queryHeight, BufferedImage.TYPE_BYTE_GRAY), 0, queryEnv)
     } else {
-      var count = 1
-      val firstRaster = chunks.next()
-      val accumuloRasterXRes = firstRaster.referencedEnvelope.getSpan(0) / firstRaster.chunk.getWidth
-      val accumuloRasterYRes = firstRaster.referencedEnvelope.getSpan(1) / firstRaster.chunk.getHeight
-      val mosaicX = (queryEnv.getSpan(0) / accumuloRasterXRes).toInt
-      val mosaicY = (queryEnv.getSpan(1) / accumuloRasterYRes).toInt
-      if (mosaicX <= 0 || mosaicY <= 0) {
-        (getEmptyImage(1, 1, BufferedImage.TYPE_BYTE_GRAY), count)
+      val theChunks = chunks.toList
+      val count = theChunks.length
+      val chunkBounds = cascadeBoundingBoxes(theChunks.map(_.BBox))
+      val chunkBoundsEnv = vividToGeotools(chunkBounds.envelope)
+      if (count <= 1) {
+        (renderedImageToBufferedImage(theChunks.head.chunk), count, chunkBoundsEnv)
       } else {
-        val mosaic = allocateBufferedImage(mosaicX, mosaicY, firstRaster.chunk)
-        writeToMosaic(mosaic, firstRaster, queryEnv, accumuloRasterXRes, accumuloRasterYRes)
-        while (chunks.hasNext) {
-          writeToMosaic(mosaic, chunks.next(), queryEnv, accumuloRasterXRes, accumuloRasterYRes)
-          count += 1
+        val compositeEnv: VEnvelope = chunkBounds.envelope
+        val accumuloRasterXRes = theChunks.head.referencedEnvelope.getSpan(0) / theChunks.head.chunk.getWidth
+        val accumuloRasterYRes = theChunks.head.referencedEnvelope.getSpan(1) / theChunks.head.chunk.getHeight
+        val compositeX = (chunkBounds.getWidth / accumuloRasterXRes).toInt
+        val compositeY = (chunkBounds.getHeight / accumuloRasterYRes).toInt
+        val mosaic = allocateBufferedImage(compositeX, compositeY, theChunks.head.chunk)
+        theChunks.par.foreach{ chunk =>
+          simpleWriteToMosaic(mosaic, chunk, compositeEnv, accumuloRasterXRes, accumuloRasterYRes)
         }
-        (scaleBufferedImage(queryWidth, queryHeight, mosaic), count)
+        (mosaic, count, chunkBoundsEnv)
       }
     }
+  }
+
+  def mosaicChunksToCoverage(chunks: Iterator[Raster], queryWidth: Int, queryHeight: Int,
+                             queryEnv: Envelope, name: String): (GridCoverage2D, Int) = {
+    val mosaicTuple = mosaicChunks(chunks, queryWidth, queryHeight, queryEnv)
+    val coverage = coverageFactory.create(name, mosaicTuple._1, mosaicTuple._3)
+    mosaicTuple._1.flush()
+    (coverage, mosaicTuple._2)
   }
 
   def scaleBufferedImage(newWidth: Int, newHeight: Int, image: BufferedImage): BufferedImage = {
@@ -149,6 +204,37 @@ object RasterUtils {
       val result = resize(image, Method.SPEED, Mode.FIT_EXACT, newWidth, newHeight, null)
       image.flush()
       result
+    }
+  }
+
+  def cropBuffer(buf: BufferedImage, bufEnv: VEnvelope, cropEnv: Envelope): Option[BufferedImage] = {
+    val intersection = bufEnv.intersection(envelopeToReferencedEnvelope(cropEnv))
+    if (intersection.equals(bufEnv)) {
+      Some(buf)
+    } else {
+      intersection match {
+        case valid if intersection.getArea > 0.0 =>
+          val chunkXRes = bufEnv.getWidth / buf.getWidth
+          val chunkYRes = bufEnv.getHeight / buf.getHeight
+          val uLX = Math.max(Math.floor((intersection.getMinX - bufEnv.getMinX) / chunkXRes).toInt, 0)
+          val uLY = Math.max(Math.floor((bufEnv.getMaxY - intersection.getMaxY) / chunkYRes).toInt, 0)
+          val wTemp = Math.max(Math.ceil(intersection.getWidth / chunkXRes).toInt, 0)
+          val w = if(wTemp + uLX > buf.getWidth) {
+            buf.getWidth - uLX
+          } else {
+            wTemp
+          }
+          val hTemp = Math.max(Math.ceil(intersection.getHeight / chunkYRes).toInt, 0)
+          val h = if(hTemp + uLY > buf.getHeight) {
+            buf.getHeight - uLY
+          } else {
+            hTemp
+          }
+          val result = bufferCrop(buf, uLX, uLY, w, h)
+          buf.flush()
+          Some(result)
+        case _                                   => None
+      }
     }
   }
 

@@ -24,7 +24,7 @@ import org.geotools.referencing.CRS
 import org.joda.time.{DateTime, DateTimeZone}
 import org.locationtech.geomesa.core.index.{DecodedIndex, IndexEntry}
 import org.locationtech.geomesa.raster.util.RasterUtils
-import org.locationtech.geomesa.utils.geohash.GeohashUtils
+import org.locationtech.geomesa.utils.geohash.{BoundingBox, GeohashUtils}
 
 trait Raster {
   def metadata: DecodedIndex
@@ -39,6 +39,8 @@ trait Raster {
   lazy val minimumBoundingGeoHash = GeohashUtils.getClosestAcceptableGeoHash(metadata.geom.getEnvelopeInternal)
 
   lazy val referencedEnvelope = new ReferencedEnvelope(metadata.geom.getEnvelopeInternal, CRS.decode("EPSG:4326"))
+
+  lazy val BBox = BoundingBox(metadata.geom.getEnvelopeInternal)
 
   def encodeValue = RasterUtils.imageSerialize(chunk)
 }

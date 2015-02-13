@@ -16,14 +16,13 @@
 
 package org.locationtech.geomesa.raster.data
 
-import java.awt.image.BufferedImage
 import java.util.Map.Entry
 
 import com.google.common.collect.ImmutableSetMultimap
 import org.apache.accumulo.core.client.{BatchWriterConfig, Connector, TableExistsException}
 import org.apache.accumulo.core.data.{Key, Mutation, Range, Value}
 import org.apache.accumulo.core.security.{Authorizations, TablePermission}
-import org.geotools.coverage.grid.GridEnvelope2D
+import org.geotools.coverage.grid.{GridCoverage2D, GridEnvelope2D}
 import org.joda.time.DateTime
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.iterators.BBOXCombiner._
@@ -53,7 +52,7 @@ trait RasterOperations extends StrategyHelpers {
   def getAvailableGeoHashLengths(): Seq[Int]
   def getResolutionAndGeoHashLengthMap(): ImmutableSetMultimap[Double, Int]
   def getGridRange(): GridEnvelope2D
-  def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage
+  def getMosaicedCoverage(query: RasterQuery, params: GeoMesaCoverageQueryParams): GridCoverage2D
 }
 
 /**
@@ -116,15 +115,16 @@ class AccumuloBackedRasterOperations(val connector: Connector,
     writeMutations(GEOMESA_RASTER_BOUNDS_TABLE, createBoundsMutation(raster))
   }
 
-  def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
+  def getMosaicedCoverage(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
     implicit val timings = new TimingsImpl
     val rasters = getRastersWithTiming(query)
 
     val (image, numRasters) = profile("mosaic") {
-      RasterUtils.mosaicChunks(rasters,
+      RasterUtils.mosaicChunksToCoverage(rasters,
                                 params.height.toInt,
                                 params.width.toInt,
-                                params.envelope)
+                                params.envelope,
+                                rasterTable)
     }
     val stat = RasterQueryStat(rasterTable,
       System.currentTimeMillis(),

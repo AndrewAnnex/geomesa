@@ -16,10 +16,8 @@
 
 package org.locationtech.geomesa.raster.data
 
-import java.awt.image.BufferedImage
-
 import com.google.common.collect.ImmutableSetMultimap
-import org.geotools.coverage.grid.GridEnvelope2D
+import org.geotools.coverage.grid.{GridCoverage2D, GridEnvelope2D}
 import org.locationtech.geomesa.raster.AccumuloStoreHelper
 import org.locationtech.geomesa.utils.geohash.BoundingBox
 
@@ -43,8 +41,8 @@ class RasterStore(val rasterOps: RasterOperations) {
 
   def getTable = rasterOps.getTable
 
-  def getMosaicedRaster(rasterQuery: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage =
-    rasterOps.getMosaicedRaster(rasterQuery, params)
+  def getMosaicedRaster(rasterQuery: RasterQuery, params: GeoMesaCoverageQueryParams): GridCoverage2D =
+    rasterOps.getMosaicedCoverage(rasterQuery, params)
 
   def getRasters(rasterQuery: RasterQuery): Iterator[Raster] = rasterOps.getRasters(rasterQuery)
 
