@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.raster.util
 
-import java.awt.image.{BufferedImage, RenderedImage}
+import java.awt.image.RenderedImage
 
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.CRS
@@ -182,80 +182,6 @@ class MosaicTest extends Specification {
       testMosaic.getHeight mustEqual 600
       testMosaic.getWidth mustEqual 200
     }.pendingUntilFixed
-
-  }
-
-  "cropRaster" should {
-
-    "not crop a raster when the cropEnv is identical to raster extent" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 50.0, 0.0, 50.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(0, 50, 0, 50)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beAnInstanceOf[Some[BufferedImage]]
-      croppedRaster.map(_.getHeight).getOrElse(0) mustEqual 256
-      croppedRaster.map(_.getWidth).getOrElse(0) mustEqual 256
-    }
-
-    "crop a raster into a square quarter" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 25.0, 0.0, 25.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(0, 50, 0, 50)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beAnInstanceOf[Some[BufferedImage]]
-      croppedRaster.map(_.getHeight).getOrElse(0) mustEqual 128
-      croppedRaster.map(_.getWidth).getOrElse(0)  mustEqual 128
-    }
-
-    "crop a raster with a offsetted cropping envelope" in {
-      val cropEnv = new ReferencedEnvelope(-10.0, 10.0, 0.0, 25.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(0, 50, 0, 50)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beAnInstanceOf[Some[BufferedImage]]
-      croppedRaster.map(_.getHeight).getOrElse(0) mustEqual 128
-      croppedRaster.map(_.getWidth).getOrElse(0)  mustEqual 52
-    }
-
-    "crop a raster into nothing when raster is touching a corner of the cropping envelope" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 50.0, 0.0, 50.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(-50, 0, -50, 0)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beNone
-    }
-
-    "crop a raster into nothing when raster is touching a vertical edge of the cropping envelope" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 50.0, 0.0, 50.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(-50, 0, 0, 50)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beNone
-    }
-
-    "crop a raster into nothing when raster is touching a horizontal edge of the cropping envelope" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 50.0, 0.0, 50.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(0, 50, -50, 0)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beNone
-    }
-
-
-    "crop a raster into nothing when raster is outside cropping envelope" in {
-      val cropEnv = new ReferencedEnvelope(0.0, 50.0, 0.0, 50.0, CRS.decode("EPSG:4326"))
-      val testRaster = generateTestRaster(-150, -100, 0, 50)
-
-      val croppedRaster = RasterUtils.cropRaster(testRaster, cropEnv)
-
-      croppedRaster must beNone
-    }
 
   }
 
