@@ -85,6 +85,8 @@ class AccumuloRasterStore(val connector: Connector,
     image
   }
 
+  def getRasters(implicit timings: Timings): Iterator[Raster] = this.getRasters(AllRasterQuery)
+
   def getRasters(rasterQuery: RasterQuery)(implicit timings: Timings): Iterator[Raster] = {
     profile({
       val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)

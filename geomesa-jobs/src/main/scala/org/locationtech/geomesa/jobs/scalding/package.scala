@@ -98,4 +98,5 @@ package object scalding {
           .toMap
     }
   }
+
 }

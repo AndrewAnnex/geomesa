@@ -35,8 +35,14 @@ import scala.util.Try
 class AccumuloRasterQueryPlanner extends Logging with IndexFilterHelpers {
   import AccumuloRasterQueryPlanner._
 
-  def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: ImmutableSetMultimap[Double, Int]): Option[QueryPlan] = {
-    val availableResolutions = resAndGeoHashMap.keySet().toList.sorted
+  def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: ImmutableSetMultimap[Double, Int]): Option[QueryPlan] = rq match {
+      case bbres: BBOXResolutionRasterQuery => getBBOXResolutionQueryPlan(bbres, resAndGeoHashMap)
+      case AllRasterQuery => Some(QueryPlan.fullTableScan)
+      case _              => throw new Exception("Error, non-valid Raster Query Plan")
+    }
+
+  private def getBBOXResolutionQueryPlan(rq: BBOXResolutionRasterQuery, resAndGeoHashMap: ImmutableSetMultimap[Double, Int]): Option[QueryPlan] = {
+      val availableResolutions = resAndGeoHashMap.keySet().toList.sorted
 
     // Step 1. Pick resolution
     val selectedRes: Double = selectResolution(rq.resolution, availableResolutions)

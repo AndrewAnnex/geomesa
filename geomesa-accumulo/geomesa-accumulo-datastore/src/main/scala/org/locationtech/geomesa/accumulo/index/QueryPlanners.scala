@@ -75,6 +75,10 @@ case class JoinPlan(table: String,
 }
 
 
+object QueryPlan {
+  val fullTableScan: QueryPlan = ScanPlan(null, new AccRange(), null, Seq.empty[Text], null, hasDuplicates = false)
+}
+
 trait KeyPlanningFilter
 
 case object AcceptEverythingFilter extends KeyPlanningFilter

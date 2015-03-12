@@ -43,7 +43,7 @@ object RasterTestsUtils {
 
   def generateQuery(minX: Double, maxX: Double, minY: Double, maxY: Double, res: Double = 10.0) = {
     val bb = BoundingBox(new ReferencedEnvelope(minX, maxX, minY, maxY, DefaultGeographicCRS.WGS84))
-    new RasterQuery(bb, res, None, None)
+    RasterQuery(bb, res, None, None)
   }
 
   implicit def bboxToRefEnv(b: BoundingBox): ReferencedEnvelope =

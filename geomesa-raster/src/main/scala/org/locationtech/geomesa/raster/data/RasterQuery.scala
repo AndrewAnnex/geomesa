@@ -11,6 +11,10 @@ package org.locationtech.geomesa.raster.data
 import org.joda.time.DateTime
 import org.locationtech.geomesa.utils.geohash.BoundingBox
 
+trait RasterQuery {
+
+}
+
 /**
  * This class contains parameters needed to create query to
  * retrieve raster chunks from Accumulo table.
@@ -20,10 +24,26 @@ import org.locationtech.geomesa.utils.geohash.BoundingBox
  * @param startTime Optional earliest ingestion time of rasters
  * @param endTime Optional latest ingestion time of rasters
  */
-case class RasterQuery(bbox: BoundingBox,
-                       resolution: Double,
-                       startTime: Option[DateTime],
-                       endTime: Option[DateTime])
+
+
+
+case class BBOXResolutionRasterQuery(bbox: BoundingBox,
+                                     resolution: Double,
+                                     startTime: Option[DateTime],
+                                     endTime: Option[DateTime]) extends RasterQuery
+
+// "Get all" rasters query
+case object AllRasterQuery extends RasterQuery
 
 // TODO: WCS: include a list of bands as an optional parameter
 // ticket is GEOMESA-559
+
+
+object RasterQuery {
+  def apply(bbox: BoundingBox,
+            resolution: Double,
+            startTime: Option[DateTime],
+            endTime: Option[DateTime]) =
+    BBOXResolutionRasterQuery(bbox, resolution, startTime, endTime)
+
+}

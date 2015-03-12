@@ -6,7 +6,7 @@
 * http://www.opensource.org/licenses/apache2.0.php.
 *************************************************************************/
 
-package org.locationtech.geomesa.jobs
+package org.locationtech.geomesa.jobs.scalding
 
 import com.twitter.scalding.{Hdfs, Read, Write}
 import org.apache.accumulo.core.client.mock.MockInstance
@@ -14,7 +14,6 @@ import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.mapred.JobConf
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.jobs.scalding._
 import org.locationtech.geomesa.jobs.scalding.taps.{AccumuloScheme, AccumuloTap}
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
