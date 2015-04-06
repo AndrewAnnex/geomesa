@@ -71,63 +71,150 @@ class QueryAndMosaicTest extends Specification {
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
     }
 
-    "Return the same tile we store along with other tiles pt. 1 with not full precision query" in {
+    "Return the same tile we store along with other tiles case one with not full precision query" in {
       val tableName = getNewIteration()
       val rasterStore = createMockRasterStore(tableName)
-      val bboxOfInterest =  BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
-      val bboxNotWanted1  = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
-      val bboxNotWanted2  = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
 
-      //populate store
-      val extraRaster = generateRaster(bboxNotWanted1, redHerring, "3")
-      rasterStore.putRaster(extraRaster)
-      val extraRaster2 = generateRaster(bboxNotWanted2, redHerring, "2")
-      rasterStore.putRaster(extraRaster2)
+      //populate store {3,1,2}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "3")
       val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "1")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "2")
+      rasterStore.putRaster(northOf)
       rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
 
       //generate query
       val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
 
       //view results
-      rasterStore must beAnInstanceOf[RasterStore]
       val rasters = rasterStore.getRasters(query).toList
-      val (mosaic, count) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
-      count mustEqual 3
-      mosaic must beAnInstanceOf[BufferedImage]
-      // first line is 42
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
     }.pendingUntilFixed("Fixed failure case one")
 
-    "Return the same tile we store along with other tiles pt. 2 with not full precision query" in {
+    "Return the same tile we store along with other tiles case two with not full precision query" in {
       val tableName = getNewIteration()
       val rasterStore = createMockRasterStore(tableName)
-      val bboxOfInterest =  BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
-      val bboxNotWanted1  = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
-      val bboxNotWanted2  = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
 
-      //populate store
-      val extraRaster = generateRaster(bboxNotWanted1, redHerring, "1")
-      rasterStore.putRaster(extraRaster)
-      val extraRaster2 = generateRaster(bboxNotWanted2, redHerring, "3")
-      rasterStore.putRaster(extraRaster2)
+      //populate store {3,2,1}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "3")
       val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "2")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "1")
+      rasterStore.putRaster(northOf)
       rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
 
       //generate query
       val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
 
       //view results
-      rasterStore must beAnInstanceOf[RasterStore]
       val rasters = rasterStore.getRasters(query).toList
-      val (mosaic, count) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
-      count mustEqual 3
-      mosaic must beAnInstanceOf[BufferedImage]
-      //first line is 42.
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
     }.pendingUntilFixed("Fixed failure case two")
 
-  }
+    "Return the same tile we store along with other tiles case three with not full precision query" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
 
+      //populate store {1,3,2}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "1")
+      val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "3")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "2")
+      rasterStore.putRaster(northOf)
+      rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
+
+      //generate query
+      val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
+
+      //view results
+      val rasters = rasterStore.getRasters(query).toList
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
+      compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
+    }
+
+    "Return the same tile we store along with other tiles case four with not full precision query" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
+
+      //populate store {1,2,3}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "1")
+      val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "2")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "3")
+      rasterStore.putRaster(northOf)
+      rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
+
+      //generate query
+      val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
+
+      //view results
+      val rasters = rasterStore.getRasters(query).toList
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
+      compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
+    }
+
+    "Return the same tile we store along with other tiles case five with not full precision query" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
+
+      //populate store {2,1,3}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "2")
+      val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "1")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "3")
+      rasterStore.putRaster(northOf)
+      rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
+
+      //generate query
+      val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
+
+      //view results
+      val rasters = rasterStore.getRasters(query).toList
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
+      compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
+    }.pendingUntilFixed("Fixed failure case five")
+
+    "Return the same tile we store along with other tiles case six with not full precision query" in {
+      val tableName = getNewIteration()
+      val rasterStore = createMockRasterStore(tableName)
+      val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)
+      val bboxOfInterest = BoundingBox(-77.1152343750, -77.104248046875, 43.001220703125, 43.0122070313125)
+      val bboxSouthOf    = BoundingBox(-77.1152343750, -77.104248046875, 42.9902343750, 43.001220703125)
+
+      //populate store {2,3,1}
+      val northOf    = generateRaster(bboxNorthOf, redHerring, "2")
+      val testRaster = generateRaster(bboxOfInterest, testRasterIntVSplit, "3")
+      val southOf    = generateRaster(bboxSouthOf, redHerring, "1")
+      rasterStore.putRaster(northOf)
+      rasterStore.putRaster(testRaster)
+      rasterStore.putRaster(southOf)
+
+      //generate query
+      val query = generateQuery(-77.1152343750, -77.1042480469, 43.0012207031, 43.0122070313)
+
+      //view results
+      val rasters = rasterStore.getRasters(query).toList
+      val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, bboxOfInterest)
+      compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
+    }
+
+  }
 
 }
