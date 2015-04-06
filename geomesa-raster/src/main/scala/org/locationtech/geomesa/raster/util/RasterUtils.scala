@@ -139,6 +139,11 @@ object RasterUtils {
         val accumuloRasterYRes = firstRaster.referencedEnvelope.getSpan(1) / firstRaster.chunk.getHeight
         val mosaicX = (queryEnv.getSpan(0) / accumuloRasterXRes).toInt
         val mosaicY = (queryEnv.getSpan(1) / accumuloRasterYRes).toInt
+        println(s"First raster envelope: ${firstRaster.referencedEnvelope.toString}")
+        println(s"accumuloXres: $accumuloRasterXRes, width: ${firstRaster.referencedEnvelope.getSpan(0)}")
+        println(s"accumuloYres: $accumuloRasterYRes, height: ${firstRaster.referencedEnvelope.getSpan(1)}")
+        println(s"mosaicX: $mosaicX")
+        println(s"mosaicY: $mosaicY")
         if (mosaicX <= 0 || mosaicY <= 0) {
           (nullImage, 1)
         } else {
