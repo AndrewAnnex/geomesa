@@ -176,29 +176,30 @@ object RasterUtils {
     if (intersection.equals(rasterEnv)) {
       Some(renderedImageToBufferedImage(raster.chunk))
     } else {
-      intersection match {
-        case valid if intersection.getArea > 0.0 =>
-          val chunkXRes = rasterEnv.getWidth / raster.chunk.getWidth
-          val chunkYRes = rasterEnv.getHeight / raster.chunk.getHeight
-          val uLX = Math.max(Math.floor((intersection.getMinX - rasterEnv.getMinimum(0)) / chunkXRes).toInt, 0)
-          val uLY = Math.max(Math.floor((rasterEnv.getMaximum(1) - intersection.getMaxY) / chunkYRes).toInt, 0)
-          val wTemp = Math.max(Math.ceil(intersection.getWidth / chunkXRes).toInt, 0)
-          val w = if(wTemp + uLX > raster.chunk.getWidth) {
-            raster.chunk.getWidth - uLX
-          } else {
-            wTemp
-          }
-          val hTemp = Math.max(Math.ceil(intersection.getHeight / chunkYRes).toInt, 0)
-          val h = if(hTemp + uLY > raster.chunk.getHeight) {
-            raster.chunk.getHeight - uLY
-          } else {
-            hTemp
-          }
-          val b = renderedImageToBufferedImage(raster.chunk)
-          val result = bufferCrop(b, uLX, uLY, w, h)
-          Some(result)
-        case _                                   => None
-      }
+      val chunkXRes = rasterEnv.getWidth / raster.chunk.getWidth
+      val chunkYRes = rasterEnv.getHeight / raster.chunk.getHeight
+      val widthP  = Math.round(intersection.getWidth / chunkXRes)
+      val heightP = Math.round(intersection.getHeight / chunkYRes)
+      if (widthP > 0 && heightP > 0) {
+        //TODO: check for corner cases.
+        val uLX = Math.max(Math.floor((intersection.getMinX - rasterEnv.getMinimum(0)) / chunkXRes).toInt, 0)
+        val uLY = Math.max(Math.floor((rasterEnv.getMaximum(1) - intersection.getMaxY) / chunkYRes).toInt, 0)
+        val wTemp = Math.max(Math.ceil(intersection.getWidth / chunkXRes).toInt, 0)
+        val w = if (wTemp + uLX > raster.chunk.getWidth) {
+          raster.chunk.getWidth - uLX
+        } else {
+          wTemp
+        }
+        val hTemp = Math.max(Math.ceil(intersection.getHeight / chunkYRes).toInt, 0)
+        val h = if (hTemp + uLY > raster.chunk.getHeight) {
+          raster.chunk.getHeight - uLY
+        } else {
+          hTemp
+        }
+        val b = renderedImageToBufferedImage(raster.chunk)
+        val result = bufferCrop(b, uLX, uLY, w, h)
+        Some(result)
+      } else None
     }
   }
 

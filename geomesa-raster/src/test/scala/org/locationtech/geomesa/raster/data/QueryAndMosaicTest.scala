@@ -94,7 +94,7 @@ class QueryAndMosaicTest extends Specification {
       val rasters = rasterStore.getRasters(query).toList
       val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, qBox)
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
-    }.pendingUntilFixed("Fixed failure case one")
+    }
 
     "Return the same tile we store along with other tiles case two with not full precision query" in {
       val tableName = getNewIteration()
@@ -119,7 +119,7 @@ class QueryAndMosaicTest extends Specification {
       val rasters = rasterStore.getRasters(query).toList
       val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, qBox)
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
-    }.pendingUntilFixed("Fixed failure case two")
+    }
 
     "Return the same tile we store along with other tiles case three with not full precision query" in {
       val tableName = getNewIteration()
@@ -194,7 +194,7 @@ class QueryAndMosaicTest extends Specification {
       val rasters = rasterStore.getRasters(query).toList
       val (mosaic, _) = RasterUtils.mosaicChunks(rasters.iterator, 16, 16, qBox)
       compareBufferedImages(mosaic, testRasterIntVSplit) must beTrue
-    }.pendingUntilFixed("Fixed failure case five")
+    }
 
     "Return the same tile we store along with other tiles case six with not full precision query" in {
       val tableName = getNewIteration()
