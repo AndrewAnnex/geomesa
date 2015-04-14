@@ -1,2 +1,9 @@
 # See http://about.travis-ci.org/docs/user/build-configuration/
+sudo: false
 language: java
+cache:
+  directories:
+  - $HOME/.m2
+install: "mvn -q clean install -T2"
+before_install:
+  - export MAVEN_OPTS="-Xmx1024m -XX:MaxPermSize=256m -Duser.timezone=UTC"
