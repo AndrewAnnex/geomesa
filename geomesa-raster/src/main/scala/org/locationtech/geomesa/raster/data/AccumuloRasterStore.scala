@@ -47,7 +47,7 @@ trait RasterOperations extends StrategyHelpers {
   def getAuths(): Authorizations
   def getVisibility(): String
   def getConnector(): Connector
-  def getRasters(rasterQuery: RasterQuery): Iterator[Raster]
+  def getRasters(rasterQuery: RasterQuery)(implicit timings: Option[TimingsImpl] = None): Iterator[Raster]
   def getQueryRecords(numRecords: Int): Iterator[String]
   def putRaster(raster: Raster): Unit
   def getBounds(): BoundingBox
@@ -55,6 +55,7 @@ trait RasterOperations extends StrategyHelpers {
   def getAvailableGeoHashLengths(): Set[Int]
   def getAvailabilityMap(): ImmutableSetMultimap[Double, Int]
   def getGridRange(): GridEnvelope2D
+  def getMosaicedRasterWithTiming(query: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage
   def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams): BufferedImage
 }
 
@@ -90,9 +91,9 @@ class AccumuloRasterStore(val connector: Connector,
   def getConnector() = connector
   def getTable() = tableName
 
-  def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
+  def getMosaicedRasterWithTiming(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
     implicit val timings = new TimingsImpl
-    val rasters = getRastersWithTiming(query)
+    val rasters = getRasters(query)(Some(timings))
 
     val (image, numRasters) = profile("mosaic") {
       RasterUtils.mosaicChunks(rasters,
@@ -111,21 +112,26 @@ class AccumuloRasterStore(val connector: Connector,
     image
   }
 
-  def getRastersWithTiming(rasterQuery: RasterQuery)(implicit timings: TimingsImpl): Iterator[Raster] = {
-    profile("scanning") {
-      val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)
-      val plan = profile(queryPlanner.getQueryPlan(rasterQuery, getAvailabilityMap), "planning")
-      configureBatchScanner(batchScanner, plan)
-      adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
-    }
+  def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
+    val rasters = getRasters(query)
+    val (image, _) = RasterUtils.mosaicChunks(rasters, params.width.toInt, params.height.toInt, params.envelope)
+    image
   }
 
   // Consider a no-op timing option to unify getRasters(WithTiming) https://geomesa.atlassian.net/browse/GEOMESA-672
-  def getRasters(rasterQuery: RasterQuery): Iterator[Raster] = {
-    val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)
-    val plan = queryPlanner.getQueryPlan(rasterQuery, getAvailabilityMap)
-    configureBatchScanner(batchScanner, plan)
-    adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
+  def getRasters(rasterQuery: RasterQuery)(implicit timings: Option[TimingsImpl] = None): Iterator[Raster] = {
+    def getThoseRasters(rq: RasterQuery): Iterator[Raster] = {
+      val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)
+      val plan = queryPlanner.getQueryPlan(rq, getAvailabilityMap)
+      configureBatchScanner(batchScanner, plan)
+      adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
+    }
+
+    timings match {
+      case Some(t) => profile("scanning") {getThoseRasters(rasterQuery)}(t)
+      case None => getThoseRasters(rasterQuery)
+    }
+
   }
 
   def getQueryRecords(numRecords: Int): Iterator[String] = {

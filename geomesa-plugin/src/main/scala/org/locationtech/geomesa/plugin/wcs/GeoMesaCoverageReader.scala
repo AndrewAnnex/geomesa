@@ -84,6 +84,7 @@ class GeoMesaCoverageReader(val url: String, hints: Hints) extends AbstractGridC
     val params = new GeoMesaCoverageQueryParams(parameters)
     val rq = params.toRasterQuery
     logger.info(s"In rastersToCoverage: width: ${params.width.toInt} height: ${params.height.toInt} resX: ${params.resX} resY: ${params.resY} env: ${params.envelope}")
+    // todo: add check to see if timing should occur
     val mosaic = ars.getMosaicedRaster(rq, params)
     val coverage = this.coverageFactory.create(coverageName, mosaic, params.envelope)
     mosaic.flush()
