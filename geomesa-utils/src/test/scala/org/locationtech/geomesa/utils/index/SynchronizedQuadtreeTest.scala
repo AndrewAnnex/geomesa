@@ -34,6 +34,7 @@ class SynchronizedQuadtreeTest extends Specification with Logging {
 
   "SynchronizedQuadtree" should {
     "be thread safe" in {
+      skipped("integration")
       val qt = new SynchronizedQuadtree
       val pt = WKTUtils.read("POINT(45 50)")
       val env = pt.getEnvelopeInternal
@@ -60,6 +61,7 @@ class SynchronizedQuadtreeTest extends Specification with Logging {
     }
 
     "normal quadtree should not be thread safe" in {
+      skipped("integration")
       val qt = new Quadtree
       val pt = WKTUtils.read("POINT(45 50)")
       val env = pt.getEnvelopeInternal
@@ -86,7 +88,7 @@ class SynchronizedQuadtreeTest extends Specification with Logging {
       read should beAFailedTry(beAnInstanceOf[ConcurrentModificationException])
       t1.join()
       success
-    }.pendingUntilFixed("fixed this test in travis ")
+    }
 
     "support high throughput" in {
 
