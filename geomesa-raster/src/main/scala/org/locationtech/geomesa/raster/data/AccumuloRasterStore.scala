@@ -30,6 +30,7 @@ import org.joda.time.DateTime
 import org.locationtech.geomesa.accumulo.index.Strategy._
 import org.locationtech.geomesa.accumulo.stats.{RasterQueryStatTransform, RasterQueryStat, StatWriter}
 import org.locationtech.geomesa.accumulo.iterators.BBOXCombiner._
+import org.locationtech.geomesa.accumulo.util.{SelfClosingScanner, SelfClosingBatchScanner}
 import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.index.RasterIndexSchema
 import org.locationtech.geomesa.raster.util.RasterUtils
@@ -75,8 +76,8 @@ class AccumuloRasterStore(val connector: Connector,
   val numQThreads = queryThreadsConfig.getOrElse(20)
 
   // TODO: WCS: GEOMESA-585 Add ability to use arbitrary schemas
-  val schema = RasterIndexSchema("")
-  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner(schema)
+  val schema = RasterIndexSchema("") //TODO: make this use the accumulo index schema
+  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner()
 
   private val tableOps = connector.tableOperations()
   private val securityOps = connector.securityOperations
@@ -93,9 +94,9 @@ class AccumuloRasterStore(val connector: Connector,
   def getMosaicedRaster(query: RasterQuery, params: GeoMesaCoverageQueryParams) = {
     implicit val timings = if (collectStats) new TimingsImpl else NoOpTimings
     val rasters = getRasters(query)
-    val (image, numRasters) = profile("mosaic") {
-        RasterUtils.mosaicChunks(rasters, params.width.toInt, params.height.toInt, params.envelope)
-      }
+    val (image, numRasters) = profile(
+        RasterUtils.mosaicChunks(rasters, params.width.toInt, params.height.toInt, params.envelope),
+      "mosaic")
     if (timings.isInstanceOf[TimingsImpl]) {
       val stat = RasterQueryStat(tableName,
         System.currentTimeMillis(),
@@ -110,7 +111,7 @@ class AccumuloRasterStore(val connector: Connector,
   }
 
   def getRasters(rasterQuery: RasterQuery)(implicit timings: Timings): Iterator[Raster] = {
-    profile("scanning") {
+    profile({
       val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)
       val plan = queryPlanner.getQueryPlan(rasterQuery, getAvailabilityMap)
       plan match {
@@ -119,7 +120,7 @@ class AccumuloRasterStore(val connector: Connector,
           adaptIteratorToChunks(SelfClosingBatchScanner(batchScanner))
         case _        => Iterator.empty
       }
-    }
+    }, "scanning")
   }
 
   def getQueryRecords(numRecords: Int): Iterator[String] = {

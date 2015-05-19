@@ -27,7 +27,6 @@ import org.apache.hadoop.io.Text
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.joda.time.DateTime
 import org.locationtech.geomesa.accumulo.index._
-import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.raster
 import org.locationtech.geomesa.raster.data.Raster
 import org.locationtech.geomesa.utils.text.WKBUtils
@@ -53,7 +52,7 @@ object RasterIndexEntry extends IndexHelpers {
     cqByteArray
   }
 
-  def decodeIndexCQMetadata(k: Key): DecodedIndexValue = { //DecodedIndex
+  def decodeIndexCQMetadata(k: Key): DecodedIndexValue = {
     decodeIndexCQMetadata(k.getColumnQualifierData.toArray)
   }
 
@@ -72,7 +71,7 @@ object RasterIndexEntryCQMetadataDecoder {
 import org.locationtech.geomesa.raster.index.RasterIndexEntryCQMetadataDecoder._
 
 case class RasterIndexEntryCQMetadataDecoder(geomDecoder: GeometryDecoder,
-                                             dtDecoder: Option[DateDecoder[ColumnQualifierExtractor]]) {
+                                             dtDecoder: Option[DateDecoder]) {
   def decode(key: Key) = {
     val builder = metaBuilder.get
     builder.reset()
@@ -136,7 +135,7 @@ case class RasterIndexEntryDecoder() {
   // maybe this is not needed at all?
   def decode(entry: KeyValuePair) = {
     val renderedImage: RenderedImage = rasterImageDeserialize(entry._2.get)
-    val metadata: DecodedIndex = RasterIndexEntry.decodeIndexCQMetadata(entry._1)
+    val metadata: DecodedIndexValue = RasterIndexEntry.decodeIndexCQMetadata(entry._1)
     //TODO: move this to RasterIndexSchema
     val res = raster.lexiDecodeStringToDouble(new String(entry._1.getRowData.toArray).split("~")
       .toList.get(1))

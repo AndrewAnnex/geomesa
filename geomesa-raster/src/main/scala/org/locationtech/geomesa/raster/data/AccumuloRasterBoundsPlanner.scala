@@ -19,7 +19,7 @@ package org.locationtech.geomesa.raster.data
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.IteratorSetting
-import org.locationtech.geomesa.core.iterators.BBOXCombiner
+import org.locationtech.geomesa.accumulo.iterators.BBOXCombiner
 
 object AccumuloRasterBoundsPlanner extends Logging {
 

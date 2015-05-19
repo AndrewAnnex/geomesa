@@ -20,6 +20,9 @@ import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.{Geometry, GeometryCollection, Point, Polygon}
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone, Interval}
+import org.locationtech.geomesa.raster._
+import org.locationtech.geomesa.raster.data.{BandPlanner, ResolutionPlanner}
+import org.locationtech.geomesa.raster.index.{RasterBandTextFormatter, DoubleTextFormatter}
 import org.locationtech.geomesa.utils.text.WKTUtils
 import org.opengis.feature.simple.SimpleFeatureType
 

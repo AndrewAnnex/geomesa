@@ -22,20 +22,19 @@ import java.util.UUID
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.{DateTime, DateTimeZone}
-import org.locationtech.geomesa.accumulo.index.IndexEntryDecoder
-import org.locationtech.geomesa.core.index.{DecodedIndex, IndexEntry}
+import org.locationtech.geomesa.accumulo.index.DecodedIndexValue
 import org.locationtech.geomesa.raster.util.RasterUtils
 import org.locationtech.geomesa.utils.geohash.GeohashUtils
 
 trait Raster {
-  def metadata: DecodedIndex
+  def metadata: DecodedIndexValue
   def resolution: Double
   def serializedChunk: Array[Byte]
   def chunk: RenderedImage
 
   def id = metadata.id
 
-  lazy val time = new DateTime(metadata.dtgMillis.getOrElse(0L), DateTimeZone.forID("UTC"))
+  lazy val time = new DateTime(metadata.date.map(new DateTime(_, DateTimeZone.UTC)).getOrElse(0L), DateTimeZone.forID("UTC"))
 
   lazy val minimumBoundingGeoHash = GeohashUtils.getClosestAcceptableGeoHash(metadata.geom.getEnvelopeInternal)
 
@@ -44,19 +43,19 @@ trait Raster {
   def encodeValue = RasterUtils.imageSerialize(chunk)
 }
 
-case class RenderedImageRaster(chunk: RenderedImage, metadata: DecodedIndex, resolution: Double) extends Raster {
+case class RenderedImageRaster(chunk: RenderedImage, metadata: DecodedIndexValue, resolution: Double) extends Raster {
   lazy val serializedChunk: Array[Byte] = RasterUtils.imageSerialize(chunk)
 }
 
-case class ArrayBytesRaster(serializedChunk: Array[Byte], metadata: DecodedIndex, resolution: Double) extends Raster {
+case class ArrayBytesRaster(serializedChunk: Array[Byte], metadata: DecodedIndexValue, resolution: Double) extends Raster {
   lazy val chunk: RenderedImage = RasterUtils.imageDeserialize(serializedChunk)
 }
 
 object Raster {
-  def apply(chunk: RenderedImage, metadata: DecodedIndex, resolution: Double) =
+  def apply(chunk: RenderedImage, metadata: DecodedIndexValue, resolution: Double) =
     RenderedImageRaster(chunk, metadata, resolution)
 
-  def apply(bytes: Array[Byte], metadata: DecodedIndex, resolution: Double) =
+  def apply(bytes: Array[Byte], metadata: DecodedIndexValue, resolution: Double) =
     ArrayBytesRaster(bytes, metadata, resolution)
 
   def getRasterId(rasterName: String): String =
@@ -64,14 +63,14 @@ object Raster {
 
   def apply(bytes: Array[Byte]): Raster = {
     val byteArrays = RasterUtils.decodeByteArrays(bytes, 3)
-    val metaData = IndexEntry.byteArrayToDecodedIndex(byteArrays(1))
+    val metaData = IndexEntry.byteArrayToDecodedIndex(byteArrays(1))  // TODO: reimplement or fix
     val resolution = RasterUtils.bytesToDouble(byteArrays(2))
     Raster(byteArrays(0), metaData, resolution)
   }
 
   def encodeToBytes(raster: Raster): Array[Byte] = {
     val chunkBytes = RasterUtils.imageSerialize(raster.chunk)
-    val metaDataBytes = raster.metadata.toBytes
+    val metaDataBytes = raster.metadata.toBytes  // TODO: reimplement or fix
     val resolutionBytes = RasterUtils.doubleToBytes(raster.resolution)
 
     RasterUtils.encodeByteArrays(List(chunkBytes, metaDataBytes, resolutionBytes))

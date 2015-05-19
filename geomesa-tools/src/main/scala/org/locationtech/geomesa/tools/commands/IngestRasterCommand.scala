@@ -26,11 +26,11 @@ import org.locationtech.geomesa.tools.ingest.{RasterChunking, LocalRasterIngest,
 
 import scala.util.{Failure, Success}
 
-class IngestRasterCommand(parent: JCommander) extends Command with AccumuloProperties {
+class IngestRasterCommand(parent: JCommander) extends Command(parent) with AccumuloProperties {
 
   val params = new IngestRasterParameters()
   validateCommand
-  parent.addCommand(Command, params)
+  parent.addCommand(command, params)
 
   override def execute() {
     val fmt = Option(params.format).getOrElse(getFileExtension(params.file))
@@ -121,6 +121,8 @@ class IngestRasterCommand(parent: JCommander) extends Command with AccumuloPrope
       IngestRasterParams.CHUNKSIZE         -> Some(params.chunkSize.toString)
     )
   }
+
+  override val command: String = "ingestraster"
 }
 
 class PathValidator extends IParameterValidator {
@@ -144,8 +146,6 @@ class ModeValidator extends IParameterValidator {
 }
 
 object IngestRasterCommand {
-  val Command = "ingestraster"
-
   @Parameters(commandDescription = "Ingest a raster file or raster files in a directory into GeoMesa")
   class IngestRasterParameters extends CreateRasterParams {
     @Parameter(names = Array("-fmt", "--format"), description = "Format of incoming raster data " +

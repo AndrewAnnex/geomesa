@@ -25,17 +25,12 @@ import org.apache.accumulo.core.data.{Range => ARange}
 import org.apache.hadoop.io.Text
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
-import org.locationtech.geomesa.accumulo.index.{QueryPlan, IndexFilterHelpers}
-import org.locationtech.geomesa.accumulo.process.knn.TouchingGeoHashes
 import org.locationtech.geomesa.accumulo._
-import org.locationtech.geomesa.accumulo.index._
+import org.locationtech.geomesa.accumulo.index.{IndexFilterHelpers, QueryPlan, _}
 import org.locationtech.geomesa.accumulo.iterators._
-import org.locationtech.geomesa.core.index._
-import org.locationtech.geomesa.core.iterators._
-import org.locationtech.geomesa.core.process.knn.TouchingGeoHashes
-import org.locationtech.geomesa.raster._
-import org.locationtech.geomesa.raster.index.RasterIndexSchema
+import org.locationtech.geomesa.accumulo.process.knn.TouchingGeoHashes
 import org.locationtech.geomesa.raster.iterators.RasterFilteringIterator
+import org.locationtech.geomesa.raster.lexiEncodeDoubleToString
 import org.locationtech.geomesa.utils.geohash.{BoundingBox, GeohashUtils}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.SimpleFeatureType
@@ -47,7 +42,7 @@ import scala.util.Try
 // TODO: Constructor needs info to create Row Formatter
 // right now the schema is not used
 // TODO: Consider adding resolutions + extent info  https://geomesa.atlassian.net/browse/GEOMESA-645
-case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging with IndexFilterHelpers {
+case class AccumuloRasterQueryPlanner() extends Logging with IndexFilterHelpers {
 
   def modifyHashRange(hash: String, expectedLen: Int, res: String): ARange = expectedLen match {
     // JNH: Think about 0-bit GH some more.
@@ -106,7 +101,7 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
 
       // TODO: WCS: setup a CFPlanner to match against a list of strings
       // ticket is GEOMESA-559
-      Some(QueryPlan(Seq(cfg), rows, Seq()))
+      Some(BatchScanPlan(null, rows, Seq(cfg), null, null, -1, false))
     }
   }
 

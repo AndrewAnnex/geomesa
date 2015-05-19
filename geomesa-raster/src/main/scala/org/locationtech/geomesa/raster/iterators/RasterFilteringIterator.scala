@@ -18,11 +18,11 @@ package org.locationtech.geomesa.raster.iterators
 
 import java.util.{Map => JMap}
 
-import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.accumulo.core.iterators.{Filter, IteratorEnvironment, SortedKeyValueIterator}
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.filter.text.ecql.ECQL
+import org.locationtech.geomesa.accumulo.index.DecodedIndexValue
 import org.locationtech.geomesa.accumulo.iterators.TServerClassLoader
 import org.locationtech.geomesa.accumulo.iterators._
 import org.locationtech.geomesa.accumulo._
@@ -61,7 +61,7 @@ class RasterFilteringIterator extends GeomesaFilteringIterator {
   }
 
   override def accept(k: Key, v: Value): Boolean = {
-    val DecodedIndex(_, geom, dtgOpt) = RasterIndexEntry.decodeIndexCQMetadata(k)
+    val DecodedIndexValue(_, geom, dtgOpt, _) = RasterIndexEntry.decodeIndexCQMetadata(k)
     wrappedSTFilter(geom, dtgOpt)
   }
 
