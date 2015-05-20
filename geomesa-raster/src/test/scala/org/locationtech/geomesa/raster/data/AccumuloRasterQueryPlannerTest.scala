@@ -56,7 +56,7 @@ class AccumuloRasterQueryPlannerTest extends Specification {
     val qp = arqp.getQueryPlan(q1, dataMap).get
 
     val rangeString = qp.ranges.head.getStartKey.getRow.toString
-    val encodedDouble = rangeString.split("~")(1)
+    val encodedDouble = rangeString.split("~")(0)
 
     val queryResolution = lexiDecodeStringToDouble(encodedDouble)
 

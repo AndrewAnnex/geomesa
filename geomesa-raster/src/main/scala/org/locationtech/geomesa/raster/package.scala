@@ -38,8 +38,10 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
  */
 package object raster {
 
+  val rasterSftName: String = ""
+
   // Raster CQ MetaData SFT
-  val rasterSft = SimpleFeatureTypes.createType("RasterIndexEntry", "*geom:Geometry,dtg:Date")
+  val rasterSft = SimpleFeatureTypes.createType("RasterIndexEntry", "*geom:Geometry:srid=4326,dtg:Date")
 
   // geom field name
   val rasterSftGeomName = "geom"

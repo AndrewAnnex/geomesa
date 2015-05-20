@@ -18,29 +18,22 @@
 
 package org.locationtech.geomesa.raster.index
 
-import org.locationtech.geomesa.accumulo.index.{CompositeTextFormatter, KeyValuePair, PartitionTextFormatter}
+import org.locationtech.geomesa.accumulo.index.KeyValuePair
 import org.locationtech.geomesa.raster.data.Raster
 
-case class RasterIndexSchema(encoder: RasterIndexEntryEncoder,
-                             decoder: RasterIndexEntryDecoder) {
+case class RasterIndexSchema(encoder: RasterEntryEncoder,
+                             decoder: RasterEntryDecoder) {
 
   def encode(raster: Raster, visibility: String = "") = encoder.encode(raster, visibility)
   def decode(entry: KeyValuePair): Raster = decoder.decode(entry)
-
-  // utility method to ask for the maximum allowable shard number
-  def maxShard: Int =
-    encoder.rowf match {
-      case CompositeTextFormatter(Seq(PartitionTextFormatter(numPartitions), xs@_*), sep) => numPartitions
-      case _ => 1  // couldn't find a matching partitioner
-    }
 
 }
 
 object RasterIndexSchema {
 
   def apply(): RasterIndexSchema = {
-    val keyEncoder = RasterIndexEntryEncoder(null, null, null)
-    val indexEntryDecoder = RasterIndexEntryDecoder()
+    val keyEncoder = new RasterEntryEncoder()
+    val indexEntryDecoder = new RasterEntryDecoder()
     RasterIndexSchema(keyEncoder, indexEntryDecoder)
   }
 

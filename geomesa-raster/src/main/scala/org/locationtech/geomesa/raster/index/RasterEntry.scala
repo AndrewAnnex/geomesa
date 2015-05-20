@@ -26,27 +26,21 @@ import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.hadoop.io.Text
 import org.locationtech.geomesa.accumulo.data.INTERNAL_GEOMESA_VERSION
 import org.locationtech.geomesa.accumulo.index._
-import org.locationtech.geomesa.features.avro.AvroSimpleFeatureFactory
+import org.locationtech.geomesa.features.ScalaSimpleFeatureFactory
 import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.data.Raster
 import org.opengis.feature.simple.SimpleFeature
 
-import scala.collection.JavaConversions._
+object RasterEntry {
 
-object RasterIndexEntry {
-  //val sft = SimpleFeatureTypes.createType("RasterIndexEntry", "*geom:Geometry,dtg:Date")
   val encoder = IndexValueEncoder(rasterSft, INTERNAL_GEOMESA_VERSION)
 
-  // the metadata CQ consists of the raster feature's:
-  // 1.  Raster ID
-  // 2.  WKB-encoded footprint geometry of the Raster (true envelope)
-  // 3.  start-date/time
   def encodeIndexCQMetadata(metadata: DecodedIndexValue): Array[Byte] = {
     encodeIndexCQMetadata(metadata.id, metadata.geom, metadata.date)
   }
 
   def encodeIndexCQMetadata(uniqId: String, geometry: Geometry, dtg: Option[Date]): Array[Byte] = {
-    val metadata = AvroSimpleFeatureFactory.buildAvroFeature(rasterSft, List(geometry, dtg.orNull), uniqId)
+    val metadata = ScalaSimpleFeatureFactory.buildFeature(rasterSft, List(geometry, dtg.orNull), uniqId)
     encodeIndexCQMetadata(metadata)
   }
 
@@ -67,10 +61,7 @@ object RasterIndexEntry {
   }
 }
 
-case class RasterIndexEntryEncoder(rowf: TextFormatter,
-                                   cff: TextFormatter,
-                                   cqf: TextFormatter)
-  extends Logging {
+class RasterEntryEncoder extends Logging {
 
   def encode(raster: Raster, visibility: String = ""): KeyValuePair = {
 
@@ -84,8 +75,8 @@ case class RasterIndexEntryEncoder(rowf: TextFormatter,
 
   private def getRow(ras: Raster) = {
     val resEncoder = DoubleTextFormatter(ras.resolution)
-    val geohash = ras.minimumBoundingGeoHash.map ( _.hash ) .getOrElse("")
-    new Text(s"~${resEncoder.fmtdStr}~$geohash")
+    val geohash = ras.minimumBoundingGeoHash.map(_.hash).getOrElse("")
+    new Text(s"${resEncoder.fmtdStr}~$geohash")
   }
 
   //TODO: WCS: add band value to Raster and insert it into the CF here
@@ -93,7 +84,7 @@ case class RasterIndexEntryEncoder(rowf: TextFormatter,
   private def getCF(raster: Raster): Text = new Text("")
   
   private def getCQ(raster: Raster): Text = {
-    new Text(RasterIndexEntry.encodeIndexCQMetadata(raster.id, raster.metadata.geom, Option(raster.time.toDate)))
+    new Text(RasterEntry.encodeIndexCQMetadata(raster.id, raster.metadata.geom, Option(raster.time.toDate)))
   }
 
   private def encodeValue(raster: Raster): Value =
@@ -101,7 +92,7 @@ case class RasterIndexEntryEncoder(rowf: TextFormatter,
 
 }
 
-object RasterIndexEntryDecoder {
+object RasterEntryDecoder {
   def rasterImageDeserialize(imageBytes: Array[Byte]): RenderedImage = {
     val in: ObjectInputStream = new ObjectInputStream(new ByteArrayInputStream(imageBytes))
     var read: RenderedImage = null
@@ -114,18 +105,16 @@ object RasterIndexEntryDecoder {
   }
 }
 
-import org.locationtech.geomesa.raster.index.RasterIndexEntryDecoder._
+import org.locationtech.geomesa.raster.index.RasterEntryDecoder._
 
-case class RasterIndexEntryDecoder() {
+class RasterEntryDecoder() {
   // this should not really need any parameters for the case class, it should simply
   // construct a Raster from a Key (don't we need the value for this....)
   // maybe this is not needed at all?
   def decode(entry: KeyValuePair) = {
     val renderedImage: RenderedImage = rasterImageDeserialize(entry._2.get)
-    val metadata: DecodedIndexValue = RasterIndexEntry.decodeIndexCQMetadata(entry._1)
-    //TODO: move this to RasterIndexSchema
-    //TODO: can we do something better?
-    val res = lexiDecodeStringToDouble(new String(entry._1.getRowData.toArray).split("~").toList.get(1))
+    val metadata: DecodedIndexValue = RasterEntry.decodeIndexCQMetadata(entry._1)
+    val res = lexiDecodeStringToDouble(new String(entry._1.getRowData.toArray).split("~")(0))
     Raster(renderedImage, metadata, res)
   }
 }

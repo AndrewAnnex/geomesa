@@ -22,7 +22,8 @@ import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
 import org.locationtech.geomesa.accumulo._
 import org.locationtech.geomesa.accumulo.iterators._
-import org.locationtech.geomesa.raster.index.RasterIndexEntry
+import org.locationtech.geomesa.raster.rasterSftName
+import org.locationtech.geomesa.raster.index.RasterEntry
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
 class RasterFilteringIterator
@@ -38,12 +39,12 @@ class RasterFilteringIterator
                     options: JMap[String, String],
                     env: IteratorEnvironment) = {
     val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
-    val featureType = SimpleFeatureTypes.createType("RasterType", simpleFeatureTypeSpec)
+    val featureType = SimpleFeatureTypes.createType(rasterSftName, simpleFeatureTypeSpec)
     // Init for GeomesaFilteringIterator
     super.init(source, options, env)
-    // Init for HasFeatureType
+    // Init for HasFeatureType, actually might not be used
     initFeatureType(options)
-    // Init for HasFilter
+    // Init for HasFilter, actually might not be used
     init(featureType, options)
     logger.debug(s"In RFI with $filter")
 
@@ -55,7 +56,7 @@ class RasterFilteringIterator
 
   override def setTopFilter(key: Key): Unit = {
     val value = source.getTopValue
-    val sf = RasterIndexEntry.decodeIndexCQMetadataToSf(key.getColumnQualifierData.toArray)
+    val sf = RasterEntry.decodeIndexCQMetadataToSf(key.getColumnQualifierData.toArray)
     if (filter.evaluate(sf)) {
       topKey = key
       topValue = value

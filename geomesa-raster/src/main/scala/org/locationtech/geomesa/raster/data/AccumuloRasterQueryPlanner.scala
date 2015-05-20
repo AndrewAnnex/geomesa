@@ -29,6 +29,7 @@ import org.locationtech.geomesa.accumulo._
 import org.locationtech.geomesa.accumulo.index.{IndexFilterHelpers, QueryPlan, _}
 import org.locationtech.geomesa.accumulo.iterators._
 import org.locationtech.geomesa.accumulo.process.knn.TouchingGeoHashes
+import org.locationtech.geomesa.raster.{rasterSft, rasterSftName}
 import org.locationtech.geomesa.raster.index.RasterIndexSchema
 import org.locationtech.geomesa.raster.iterators.RasterFilteringIterator
 import org.locationtech.geomesa.raster.lexiEncodeDoubleToString
@@ -47,10 +48,10 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
 
   def modifyHashRange(hash: String, expectedLen: Int, res: String): ARange = expectedLen match {
     // JNH: Think about 0-bit GH some more.
-    case 0                                     => new ARange(new Text(s"~$res~"))
-    case lucky if expectedLen == hash.length   => new ARange(new Text(s"~$res~$hash"))
-    case shorten if expectedLen < hash.length  => new ARange(new Text(s"~$res~${hash.substring(0, expectedLen)}"))
-    case lengthen if expectedLen > hash.length => new ARange(new Text(s"~$res~$hash"), new Text(s"~$res~$hash~"))
+    case 0                                     => new ARange(new Text(s"$res~"))
+    case lucky if expectedLen == hash.length   => new ARange(new Text(s"$res~$hash"))
+    case shorten if expectedLen < hash.length  => new ARange(new Text(s"$res~${hash.substring(0, expectedLen)}"))
+    case lengthen if expectedLen > hash.length => new ARange(new Text(s"$res~$hash"), new Text(s"$res~$hash~"))
   }
 
   def getQueryPlan(rq: RasterQuery, resAndGeoHashMap: ImmutableSetMultimap[Double, Int]): Option[QueryPlan] = {
@@ -97,12 +98,12 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
       logger.debug(s"Scanning with ranges: $rows")
       // setup the RasterFilteringIterator
       val cfg = new IteratorSetting(90, "raster-filtering-iterator", classOf[RasterFilteringIterator])
-      configureRasterFilter(cfg, AccumuloRasterQueryPlanner.constructRasterFilter(rq.bbox.geom, indexSFT))
-      configureRasterMetadataFeatureType(cfg, indexSFT)
+      configureRasterFilter(cfg, AccumuloRasterQueryPlanner.constructRasterFilter(rq.bbox.geom, rasterSft))
+      configureRasterMetadataFeatureType(cfg, rasterSft)
 
       // TODO: WCS: setup a CFPlanner to match against a list of strings
       // ticket is GEOMESA-559
-      Some(BatchScanPlan(null, rows, Seq(cfg), Seq.empty[Text], null, -1, false))
+      Some(BatchScanPlan(null, rows, Seq(cfg), Seq.empty[Text], null, -1, hasDuplicates = false))
     }
   }
 
@@ -125,12 +126,12 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
   }
 
   def configureRasterFilter(cfg: IteratorSetting, filter: Filter) = {
-    cfg.addOption(DEFAULT_FILTER_PROPERTY_NAME, ECQL.toCQL(filter))
+    cfg.addOption(GEOMESA_ITERATORS_ECQL_FILTER, ECQL.toCQL(filter))
   }
 
   def configureRasterMetadataFeatureType(cfg: IteratorSetting, featureType: SimpleFeatureType) = {
     val encodedSimpleFeatureType = SimpleFeatureTypes.encodeType(featureType)
-    cfg.addOption(GEOMESA_ITERATORS_SFT_NAME, "RasterType") // TODO: make RasterType a val somewhere for reuse
+    cfg.addOption(GEOMESA_ITERATORS_SFT_NAME, rasterSftName)
     cfg.addOption(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE, encodedSimpleFeatureType)
     cfg.encodeUserData(featureType.getUserData, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
   }

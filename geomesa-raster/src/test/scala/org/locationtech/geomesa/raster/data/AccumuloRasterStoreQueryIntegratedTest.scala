@@ -258,7 +258,7 @@ class AccumuloRasterStoreQueryIntegratedTest extends Specification {
       rasterStore must beAnInstanceOf[AccumuloRasterStore]
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(1)
-    }.pendingUntilFixed("Fixed Qlevel 1 test")
+    }
 
     "Properly return one raster in a QLevel 2 bounding box" in {
       val tableName = getNewIteration()
@@ -274,7 +274,7 @@ class AccumuloRasterStoreQueryIntegratedTest extends Specification {
       rasterStore must beAnInstanceOf[AccumuloRasterStore]
       val theResults = rasterStore.getRasters(query).toList
       theResults.length must beEqualTo(1)
-    }.pendingUntilFixed("Fixed Qlevel 2 test")
+    }
 
     "Properly return one raster in a QLevel 3 bounding box" in {
       val tableName = getNewIteration()

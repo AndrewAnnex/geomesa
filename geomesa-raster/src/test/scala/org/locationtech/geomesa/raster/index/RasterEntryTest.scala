@@ -26,7 +26,7 @@ import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
-class RasterIndexEntryTest extends Specification {
+class RasterEntryTest extends Specification {
 
   sequential
 
@@ -35,7 +35,7 @@ class RasterIndexEntryTest extends Specification {
 
   def makeKey(cq: Array[Byte]): Key = new Key(emptyByte, emptyByte, cq, emptyByte, Long.MaxValue)
 
-  "RasterIndexEntry" should {
+  "RasterEntry" should {
 
     "encode and decode Raster meta-data properly" in {
       val wkt = "POLYGON ((10 0, 10 10, 0 10, 0 0, 10 0))"
@@ -44,13 +44,13 @@ class RasterIndexEntryTest extends Specification {
       val date = now
 
       // output encoded meta data
-      val cqMetaData = RasterIndexEntry.encodeIndexCQMetadata(id, geom, Some(date))
+      val cqMetaData = RasterEntry.encodeIndexCQMetadata(id, geom, Some(date))
 
       // convert CQ Array[Byte] to Key (a key with everything as a null except CQ)
       val keyWithCq = makeKey(cqMetaData)
 
       // decode metadata from key
-      val decoded = RasterIndexEntry.decodeIndexCQMetadata(keyWithCq)
+      val decoded = RasterEntry.decodeIndexCQMetadata(keyWithCq)
 
       // requirements
       decoded must not equalTo null
@@ -66,13 +66,13 @@ class RasterIndexEntryTest extends Specification {
       val dt: Option[Date] = None
 
       // output encoded meta data
-      val cqMetaData = RasterIndexEntry.encodeIndexCQMetadata(id, geom, dt)
+      val cqMetaData = RasterEntry.encodeIndexCQMetadata(id, geom, dt)
 
       // convert CQ Array[Byte] to Key (a key with everything as a null except CQ)
       val keyWithCq = makeKey(cqMetaData)
 
       // decode metadata from key
-      val decoded = RasterIndexEntry.decodeIndexCQMetadata(keyWithCq)
+      val decoded = RasterEntry.decodeIndexCQMetadata(keyWithCq)
 
       // requirements
       decoded must not equalTo null
