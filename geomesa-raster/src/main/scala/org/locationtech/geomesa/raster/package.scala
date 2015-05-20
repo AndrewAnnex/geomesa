@@ -19,6 +19,7 @@ package org.locationtech.geomesa
 import java.math.{RoundingMode, MathContext}
 
 import org.calrissian.mango.types.LexiTypeEncoders
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
 /**
  * In these lexiEncode and -Decode functions, a double is encoded or decoded into a lexical
@@ -36,6 +37,15 @@ import org.calrissian.mango.types.LexiTypeEncoders
  * we save only four digits after the decimal point.
  */
 package object raster {
+
+  // Raster CQ MetaData SFT
+  val rasterSft = SimpleFeatureTypes.createType("RasterIndexEntry", "*geom:Geometry,dtg:Date")
+
+  // geom field name
+  val rasterSftGeomName = "geom"
+
+  // dtg field name
+  val rasterSftDtgName = "dtg"
 
   // Sets the rounding mode to use floor() in order to minimize effects from round-off at higher precisions
   val roundingMode =  RoundingMode.FLOOR

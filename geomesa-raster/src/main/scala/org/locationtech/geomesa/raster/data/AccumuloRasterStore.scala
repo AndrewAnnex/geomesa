@@ -28,15 +28,15 @@ import org.apache.accumulo.core.security.{Authorizations, TablePermission}
 import org.geotools.coverage.grid.GridEnvelope2D
 import org.joda.time.DateTime
 import org.locationtech.geomesa.accumulo.index.Strategy._
-import org.locationtech.geomesa.accumulo.stats.{RasterQueryStatTransform, RasterQueryStat, StatWriter}
 import org.locationtech.geomesa.accumulo.iterators.BBOXCombiner._
-import org.locationtech.geomesa.accumulo.util.{SelfClosingScanner, SelfClosingBatchScanner}
+import org.locationtech.geomesa.accumulo.stats.{RasterQueryStat, RasterQueryStatTransform, StatWriter}
+import org.locationtech.geomesa.accumulo.util.{SelfClosingBatchScanner, SelfClosingScanner}
 import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.index.RasterIndexSchema
 import org.locationtech.geomesa.raster.util.RasterUtils
 import org.locationtech.geomesa.security.AuthorizationsProvider
 import org.locationtech.geomesa.utils.geohash.BoundingBox
-import org.locationtech.geomesa.utils.stats.{MethodProfiling, Timings, NoOpTimings, TimingsImpl}
+import org.locationtech.geomesa.utils.stats.{MethodProfiling, NoOpTimings, Timings, TimingsImpl}
 
 import scala.collection.JavaConversions._
 
@@ -76,8 +76,8 @@ class AccumuloRasterStore(val connector: Connector,
   val numQThreads = queryThreadsConfig.getOrElse(20)
 
   // TODO: WCS: GEOMESA-585 Add ability to use arbitrary schemas
-  val schema = RasterIndexSchema("") //TODO: make this use the accumulo index schema
-  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner()
+  val schema = RasterIndexSchema()
+  lazy val queryPlanner: AccumuloRasterQueryPlanner = new AccumuloRasterQueryPlanner(schema)
 
   private val tableOps = connector.tableOperations()
   private val securityOps = connector.securityOperations

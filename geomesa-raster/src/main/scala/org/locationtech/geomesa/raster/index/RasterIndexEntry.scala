@@ -18,65 +18,50 @@ package org.locationtech.geomesa.raster.index
 
 import java.awt.image.RenderedImage
 import java.io.{ByteArrayInputStream, ObjectInputStream}
-import java.nio.ByteBuffer
+import java.util.Date
 
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Geometry
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.hadoop.io.Text
-import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.joda.time.DateTime
+import org.locationtech.geomesa.accumulo.data.INTERNAL_GEOMESA_VERSION
 import org.locationtech.geomesa.accumulo.index._
-import org.locationtech.geomesa.raster
+import org.locationtech.geomesa.features.avro.AvroSimpleFeatureFactory
+import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.data.Raster
-import org.locationtech.geomesa.utils.text.WKBUtils
+import org.opengis.feature.simple.SimpleFeature
 
 import scala.collection.JavaConversions._
 
-object RasterIndexEntry extends IndexHelpers {
+object RasterIndexEntry {
+  //val sft = SimpleFeatureTypes.createType("RasterIndexEntry", "*geom:Geometry,dtg:Date")
+  val encoder = IndexValueEncoder(rasterSft, INTERNAL_GEOMESA_VERSION)
 
   // the metadata CQ consists of the raster feature's:
   // 1.  Raster ID
   // 2.  WKB-encoded footprint geometry of the Raster (true envelope)
   // 3.  start-date/time
-  def encodeIndexCQMetadata(uniqId: String, geometry: Geometry, dtg: Option[DateTime]) = {
-    val encodedId   = uniqId.getBytes
-    val encodedGeom = WKBUtils.write(geometry)
-    val encodedDtg  = dtg.map { d => ByteBuffer.allocate(8).putLong(d.getMillis).array() } .getOrElse(Array[Byte]())
-    
-    val cqByteArray = ByteBuffer.allocate(4).putInt(encodedId.length).array() ++
-                      encodedId ++
-                      ByteBuffer.allocate(4).putInt(encodedGeom.length).array() ++
-                      encodedGeom ++
-                      encodedDtg
-    cqByteArray
+  def encodeIndexCQMetadata(metadata: DecodedIndexValue): Array[Byte] = {
+    encodeIndexCQMetadata(metadata.id, metadata.geom, metadata.date)
   }
+
+  def encodeIndexCQMetadata(uniqId: String, geometry: Geometry, dtg: Option[Date]): Array[Byte] = {
+    val metadata = AvroSimpleFeatureFactory.buildAvroFeature(rasterSft, List(geometry, dtg), uniqId)
+    encodeIndexCQMetadata(metadata)
+  }
+
+  def encodeIndexCQMetadata(sf: SimpleFeature): Array[Byte] = encoder.encode(sf)
 
   def decodeIndexCQMetadata(k: Key): DecodedIndexValue = {
     decodeIndexCQMetadata(k.getColumnQualifierData.toArray)
   }
 
   def decodeIndexCQMetadata(cq: Array[Byte]): DecodedIndexValue = {
-    byteArrayToDecodedIndex(cq)
-  }
-
-}
-
-object RasterIndexEntryCQMetadataDecoder {
-  val metaBuilder = new ThreadLocal[SimpleFeatureBuilder] {
-    override def initialValue(): SimpleFeatureBuilder = new SimpleFeatureBuilder(indexSFT)
-  }
-}
-
-import org.locationtech.geomesa.raster.index.RasterIndexEntryCQMetadataDecoder._
-
-case class RasterIndexEntryCQMetadataDecoder(geomDecoder: GeometryDecoder,
-                                             dtDecoder: Option[DateDecoder]) {
-  def decode(key: Key) = {
-    val builder = metaBuilder.get
-    builder.reset()
-    builder.addAll(List(geomDecoder.decode(key), dtDecoder.map { _.decode(key) } ))
-    builder.buildFeature("")
+    val sf = encoder.decode(cq)
+    val id = sf.getID
+    val geom = sf.getDefaultGeometry.asInstanceOf[Geometry]
+    val dtg = Option(sf.getAttribute(rasterSftDtgName).asInstanceOf[Date])
+    DecodedIndexValue(id, geom, dtg, null)
   }
 }
 
@@ -106,7 +91,7 @@ case class RasterIndexEntryEncoder(rowf: TextFormatter,
   private def getCF(raster: Raster): Text = new Text("")
   
   private def getCQ(raster: Raster): Text = {
-    new Text(RasterIndexEntry.encodeIndexCQMetadata(raster.id, raster.metadata.geom, Some(raster.time)))
+    new Text(RasterIndexEntry.encodeIndexCQMetadata(raster.id, raster.metadata.geom, Option(raster.time.toDate)))
   }
 
   private def encodeValue(raster: Raster): Value =
@@ -137,8 +122,8 @@ case class RasterIndexEntryDecoder() {
     val renderedImage: RenderedImage = rasterImageDeserialize(entry._2.get)
     val metadata: DecodedIndexValue = RasterIndexEntry.decodeIndexCQMetadata(entry._1)
     //TODO: move this to RasterIndexSchema
-    val res = raster.lexiDecodeStringToDouble(new String(entry._1.getRowData.toArray).split("~")
-      .toList.get(1))
+    //TODO: can we do something better?
+    val res = lexiDecodeStringToDouble(new String(entry._1.getRowData.toArray).split("~").toList.get(1))
     Raster(renderedImage, metadata, res)
   }
 }

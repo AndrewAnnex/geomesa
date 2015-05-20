@@ -30,7 +30,7 @@ class AccumuloRasterQueryPlannerTest extends Specification {
 
   sequential
 
-  val schema = RasterIndexSchema("")
+  val schema = RasterIndexSchema()
   val availableResolutions = List[Double](45.0/256.0, 45.0/1024.0)
 
   val dataMap: ImmutableSetMultimap[Double, Int] = ImmutableSetMultimap.of(45.0/256.0, 1, 45.0/1024.0, 1)
