@@ -21,7 +21,7 @@ import com.beust.jcommander.{IParameterValidator, JCommander, Parameter, Paramet
 import org.locationtech.geomesa.raster.util.RasterUtils.IngestRasterParams
 import org.locationtech.geomesa.tools.Utils.Formats._
 import org.locationtech.geomesa.tools._
-import org.locationtech.geomesa.tools.commands.IngestRasterCommand.{Command, IngestRasterParameters}
+import org.locationtech.geomesa.tools.commands.IngestRasterCommand.IngestRasterParameters
 import org.locationtech.geomesa.tools.ingest.{RasterChunking, LocalRasterIngest, RasterFilesSerialization, RemoteRasterIngest}
 
 import scala.util.{Failure, Success}

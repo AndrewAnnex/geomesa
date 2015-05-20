@@ -30,7 +30,7 @@ import com.typesafe.scalalogging.slf4j.Logging
 import org.locationtech.geomesa.tools.Utils.Formats._
 
 import scala.collection.JavaConversions._
-import org.locationtech.geomesa.core.data.AccumuloDataStoreFactory.{params => dsp}
+import org.locationtech.geomesa.accumulo.data.AccumuloDataStoreFactory.{params => dsp}
 
 trait RasterIngest extends Logging {
   def getAccumuloCoverageStoreConf(config: Map[String, Option[String]]): JMap[String, Serializable] =

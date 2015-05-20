@@ -24,7 +24,7 @@ import org.apache.hadoop.conf.Configuration
 import org.geotools.coverage.grid.GridCoverage2D
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
-import org.locationtech.geomesa.core.index.DecodedIndex
+import org.locationtech.geomesa.accumulo.index.DecodedIndexValue
 import org.locationtech.geomesa.raster.data.Raster
 import org.locationtech.geomesa.raster.util.RasterUtils
 import org.locationtech.geomesa.raster.util.RasterUtils.IngestRasterParams
@@ -71,8 +71,8 @@ class RasterFilesSerialization(config: Map[String, Option[String]]) extends Rast
       val envelope = rasterGrid.getEnvelope2D
       val bbox = BoundingBox(envelope.getMinX, envelope.getMaxX, envelope.getMinY, envelope.getMaxY)
 
-      val ingestTime = config(IngestRasterParams.TIME).map(df.parseDateTime(_)).getOrElse(new DateTime(DateTimeZone.UTC))
-      val metadata = DecodedIndex(Raster.getRasterId(rasterName), bbox.geom, Some(ingestTime.getMillis))
+      val ingestTime = config(IngestRasterParams.TIME).map(df.parseDateTime).getOrElse(new DateTime(DateTimeZone.UTC))
+      val metadata = DecodedIndexValue(Raster.getRasterId(rasterName), bbox.geom, Some(ingestTime.toDate), null)
 
       val res =  RasterUtils.sharedRasterParams(rasterGrid.getGridGeometry, envelope).suggestedQueryResolution
 

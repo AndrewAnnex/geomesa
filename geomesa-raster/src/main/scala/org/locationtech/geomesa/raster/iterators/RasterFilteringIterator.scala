@@ -19,50 +19,49 @@ package org.locationtech.geomesa.raster.iterators
 import java.util.{Map => JMap}
 
 import org.apache.accumulo.core.data.{Key, Value}
-import org.apache.accumulo.core.iterators.{Filter, IteratorEnvironment, SortedKeyValueIterator}
-import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.geotools.filter.text.ecql.ECQL
-import org.locationtech.geomesa.accumulo.index.DecodedIndexValue
-import org.locationtech.geomesa.accumulo.iterators.TServerClassLoader
-import org.locationtech.geomesa.accumulo.iterators._
+import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
 import org.locationtech.geomesa.accumulo._
+import org.locationtech.geomesa.accumulo.iterators._
 import org.locationtech.geomesa.raster.index.RasterIndexEntry
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
-class RasterFilteringIterator extends GeomesaFilteringIterator {
+class RasterFilteringIterator
+  extends GeomesaFilteringIterator
+  with HasFeatureType
+  with SetTopUnique
+  with SetTopFilter
+  with HasFilter {
+
+  var setTopOptimized: (Key) => Unit = null
 
   override def init(source: SortedKeyValueIterator[Key, Value],
                     options: JMap[String, String],
                     env: IteratorEnvironment) = {
-    TServerClassLoader.initClassLoader(logger)
+    val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
+    val featureType = SimpleFeatureTypes.createType("RasterType", simpleFeatureTypeSpec)
+    // Init for GeomesaFilteringIterator
     super.init(source, options, env)
+    // Init for HasFeatureType
+    initFeatureType(options)
+    // Init for HasFilter
+    init(featureType, options)
+    logger.debug(s"In RFI with $filter")
 
-    if (options.containsKey(DEFAULT_FILTER_PROPERTY_NAME) && options.containsKey(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)) {
-      val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
-      val featureType = SimpleFeatureTypes.createType("RasterType", simpleFeatureTypeSpec)
-
-      featureType.decodeUserData(options, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
-      dateAttributeName = getDtgFieldName(featureType)
-
-      val filterString = options.get(DEFAULT_FILTER_PROPERTY_NAME)
-      filter = ECQL.toFilter(filterString)
-      logger.debug(s"In RFI with $filter")
-      val sfb = new SimpleFeatureBuilder(featureType)
-      testSimpleFeature = sfb.buildFeature("test")
-
+    setTopOptimized = filter match {
+      case null => setTopInclude
+      case _ => setTopFilter
     }
   }
 
-  override def deepCopy(env: IteratorEnvironment) = {
-    val copy = super.deepCopy(env).asInstanceOf[RasterFilteringIterator]
-    copy.filter = filter
-    copy.testSimpleFeature = testSimpleFeature
-    copy
+  override def setTopFilter(key: Key): Unit = {
+    val value = source.getTopValue
+    val sf = RasterIndexEntry.decodeIndexCQMetadataToSf(key.getColumnQualifierData.toArray)
+    if (filter.evaluate(sf)) {
+      topKey = key
+      topValue = value
+    }
   }
 
-  override def accept(k: Key, v: Value): Boolean = {
-    val DecodedIndexValue(_, geom, dtgOpt, _) = RasterIndexEntry.decodeIndexCQMetadata(k)
-    wrappedSTFilter(geom, dtgOpt)
-  }
+  override def setTopConditionally(): Unit = setTopOptimized(source.getTopKey)
 
 }

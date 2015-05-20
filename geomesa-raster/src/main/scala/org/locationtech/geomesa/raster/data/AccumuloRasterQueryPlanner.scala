@@ -102,7 +102,7 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
 
       // TODO: WCS: setup a CFPlanner to match against a list of strings
       // ticket is GEOMESA-559
-      Some(BatchScanPlan(null, rows, Seq(cfg), null, null, -1, false))
+      Some(BatchScanPlan(null, rows, Seq(cfg), Seq.empty[Text], null, -1, false))
     }
   }
 
@@ -130,6 +130,7 @@ case class AccumuloRasterQueryPlanner(schema: RasterIndexSchema) extends Logging
 
   def configureRasterMetadataFeatureType(cfg: IteratorSetting, featureType: SimpleFeatureType) = {
     val encodedSimpleFeatureType = SimpleFeatureTypes.encodeType(featureType)
+    cfg.addOption(GEOMESA_ITERATORS_SFT_NAME, "RasterType") // TODO: make RasterType a val somewhere for reuse
     cfg.addOption(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE, encodedSimpleFeatureType)
     cfg.encodeUserData(featureType.getUserData, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
   }

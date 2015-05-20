@@ -24,7 +24,7 @@ import org.geotools.coverage.grid.{GridCoverage2D, GridCoverageFactory}
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.DateTime
-import org.locationtech.geomesa.core.index.DecodedIndex
+import org.locationtech.geomesa.accumulo.index.DecodedIndexValue
 import org.locationtech.geomesa.raster.data.{AccumuloRasterStore, Raster, RasterQuery}
 import org.locationtech.geomesa.raster.util.RasterUtils
 import org.locationtech.geomesa.utils.geohash.{BoundingBox, GeoHash}
@@ -46,7 +46,7 @@ object RasterTestsUtils {
   val defaultGridCoverageFactory = new GridCoverageFactory
 
   def createMockRasterStore(tableName: String) = {
-    val rs = AccumuloRasterStore("user", "pass", "testInstance", "zk", tableName, "", "", true)
+    val rs = AccumuloRasterStore("user", "pass", "testInstance", "zk", tableName, "", "", useMock = true)
     rs
   }
 
@@ -60,7 +60,7 @@ object RasterTestsUtils {
 
   def generateRaster(bbox: BoundingBox, buf: BufferedImage, id: String = Raster.getRasterId("testRaster")): Raster = {
     val ingestTime = new DateTime()
-    val metadata = DecodedIndex(id, bbox.geom, Option(ingestTime.getMillis))
+    val metadata = DecodedIndexValue(id, bbox.geom, Option(ingestTime.toDate), null)
     val coverage = imageToCoverage(buf.getRaster, bbox, defaultGridCoverageFactory)
     Raster(coverage.getRenderedImage, metadata, 10.0)
   }
@@ -71,7 +71,7 @@ object RasterTestsUtils {
     val ingestTime = new DateTime()
     val env = new ReferencedEnvelope(minX, maxX, minY, maxY, DefaultGeographicCRS.WGS84)
     val bbox = BoundingBox(env)
-    val metadata = DecodedIndex(Raster.getRasterId("testRaster"), bbox.geom, Option(ingestTime.getMillis))
+    val metadata = DecodedIndexValue(Raster.getRasterId("testRaster"), bbox.geom, Option(ingestTime.toDate), null)
     val image = RasterUtils.getNewImage(w, h, color)
     val coverage = imageToCoverage(image.getRaster, env, defaultGridCoverageFactory)
     Raster(coverage.getRenderedImage, metadata, res)

@@ -31,7 +31,7 @@ import org.specs2.runner.JUnitRunner
 class QueryAndMosaicTest extends Specification {
   sequential
 
-  implicit val noTime: Timings = new NoOpTimings
+  implicit val noTime: Timings = NoOpTimings
   var testIteration = 0
 
   val bboxNorthOf    = BoundingBox(-77.1152343750, -77.104248046875, 43.01220703125, 43.023193359375)

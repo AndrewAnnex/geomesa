@@ -46,7 +46,7 @@ object RasterIndexEntry {
   }
 
   def encodeIndexCQMetadata(uniqId: String, geometry: Geometry, dtg: Option[Date]): Array[Byte] = {
-    val metadata = AvroSimpleFeatureFactory.buildAvroFeature(rasterSft, List(geometry, dtg), uniqId)
+    val metadata = AvroSimpleFeatureFactory.buildAvroFeature(rasterSft, List(geometry, dtg.orNull), uniqId)
     encodeIndexCQMetadata(metadata)
   }
 
@@ -56,8 +56,10 @@ object RasterIndexEntry {
     decodeIndexCQMetadata(k.getColumnQualifierData.toArray)
   }
 
+  def decodeIndexCQMetadataToSf(cq: Array[Byte]): SimpleFeature = encoder.decode(cq)
+
   def decodeIndexCQMetadata(cq: Array[Byte]): DecodedIndexValue = {
-    val sf = encoder.decode(cq)
+    val sf = decodeIndexCQMetadataToSf(cq)
     val id = sf.getID
     val geom = sf.getDefaultGeometry.asInstanceOf[Geometry]
     val dtg = Option(sf.getAttribute(rasterSftDtgName).asInstanceOf[Date])

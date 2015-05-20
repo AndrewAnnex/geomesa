@@ -20,15 +20,14 @@ import java.util.Date
 
 import com.beust.jcommander.{JCommander, Parameter, Parameters}
 import org.locationtech.geomesa.accumulo.stats.RasterQueryStatTransform
-import org.locationtech.geomesa.core.stats.RasterQueryStatTransform
 import org.locationtech.geomesa.raster.data.AccumuloCoverageStore
 import org.locationtech.geomesa.tools.AccumuloProperties
-import org.locationtech.geomesa.tools.commands.QueryStatsCommand.{Command, QueryStatsParameters}
+import org.locationtech.geomesa.tools.commands.QueryStatsCommand.QueryStatsParameters
 
 class QueryStatsCommand(parent: JCommander) extends Command(parent) with AccumuloProperties {
 
   val params = new QueryStatsParameters()
-  parent.addCommand(Command, params)
+  parent.addCommand(command, params)
 
   override def execute() = {
     val queryRecords = createCoverageStore(params)
