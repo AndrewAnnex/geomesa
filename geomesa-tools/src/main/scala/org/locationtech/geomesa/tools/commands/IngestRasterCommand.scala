@@ -27,12 +27,11 @@ import org.locationtech.geomesa.tools.ingest.{RasterChunking, LocalRasterIngest,
 import scala.util.{Failure, Success}
 
 class IngestRasterCommand(parent: JCommander) extends Command(parent) with AccumuloProperties {
-
-  val params = new IngestRasterParameters()
-  validateCommand
-  parent.addCommand(command, params)
+  override val command: String = "ingestraster"
+  override val params = new IngestRasterParameters()
 
   override def execute() {
+    validateCommand
     val fmt = Option(params.format).getOrElse(getFileExtension(params.file))
     fmt match {
       case TIFF | DTED =>
@@ -121,8 +120,6 @@ class IngestRasterCommand(parent: JCommander) extends Command(parent) with Accum
       IngestRasterParams.CHUNKSIZE         -> Some(params.chunkSize.toString)
     )
   }
-
-  override val command: String = "ingestraster"
 }
 
 class PathValidator extends IParameterValidator {

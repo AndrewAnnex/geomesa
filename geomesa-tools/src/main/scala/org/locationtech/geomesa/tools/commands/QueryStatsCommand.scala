@@ -25,9 +25,8 @@ import org.locationtech.geomesa.tools.AccumuloProperties
 import org.locationtech.geomesa.tools.commands.QueryStatsCommand.QueryStatsParameters
 
 class QueryStatsCommand(parent: JCommander) extends Command(parent) with AccumuloProperties {
-
-  val params = new QueryStatsParameters()
-  parent.addCommand(command, params)
+  override val command: String = "querystats"
+  override val params = new QueryStatsParameters()
 
   override def execute() = {
     val queryRecords = createCoverageStore(params)
@@ -59,8 +58,6 @@ class QueryStatsCommand(parent: JCommander) extends Command(parent) with Accumul
       case None => new FileWriter(s"./queryStats-$date.csv")
     }
   }
-
-  override val command: String = "querystats"
 }
 
 object QueryStatsCommand {

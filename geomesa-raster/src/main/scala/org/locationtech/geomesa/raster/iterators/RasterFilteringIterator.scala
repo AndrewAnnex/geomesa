@@ -20,11 +20,8 @@ import java.util.{Map => JMap}
 
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
-import org.locationtech.geomesa.accumulo._
 import org.locationtech.geomesa.accumulo.iterators._
-import org.locationtech.geomesa.raster.rasterSftName
 import org.locationtech.geomesa.raster.index.RasterEntry
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
 class RasterFilteringIterator
   extends GeomesaFilteringIterator
@@ -38,13 +35,8 @@ class RasterFilteringIterator
   override def init(source: SortedKeyValueIterator[Key, Value],
                     options: JMap[String, String],
                     env: IteratorEnvironment) = {
-    val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
-    val featureType = SimpleFeatureTypes.createType(rasterSftName, simpleFeatureTypeSpec)
-    // Init for GeomesaFilteringIterator
     super.init(source, options, env)
-    // Init for HasFeatureType, actually might not be used
     initFeatureType(options)
-    // Init for HasFilter, actually might not be used
     init(featureType, options)
     logger.debug(s"In RFI with $filter")
 
