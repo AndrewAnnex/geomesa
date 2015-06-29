@@ -46,6 +46,7 @@ package object raster {
   // Defines the rules for rounding using the above
   val mc = new MathContext(significantDigits, roundingMode)
 
+  val defaultResolution = 1.0
   /**
    * The double, number, is truncated to a certain number of significant digits and then lexiEncoded into
    * a string representations.

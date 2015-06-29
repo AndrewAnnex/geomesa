@@ -16,11 +16,12 @@
 
 package org.locationtech.geomesa.raster.data
 
-import com.google.common.collect.ImmutableSetMultimap
+import com.google.common.collect.{ImmutableMap, ImmutableSetMultimap}
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.raster.RasterTestsUtils._
 import org.locationtech.geomesa.raster._
 import org.locationtech.geomesa.raster.index.RasterIndexSchema
+import org.locationtech.geomesa.utils.geohash.BoundingBox
 import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -35,7 +36,9 @@ class AccumuloRasterQueryPlannerTest extends Specification {
 
   val dataMap: ImmutableSetMultimap[Double, Int] = ImmutableSetMultimap.of(45.0/256.0, 1, 45.0/1024.0, 1)
 
-  val arqp = AccumuloRasterQueryPlanner(schema)
+  val boundsMap: ImmutableMap[Double, BoundingBox] = ImmutableMap.of(45.0/256.0, wholeworld, 45.0/1024.0, wholeworld)
+
+  val arqp = AccumuloRasterQueryPlanner
 
   val testCases = List(
     (128, 45.0/256.0),
@@ -53,7 +56,7 @@ class AccumuloRasterQueryPlannerTest extends Specification {
 
   def runTest(size: Int, expectedResolution: Double): MatchResult[Double] = {
     val q1 = generateQuery(0, 45, 0, 45, 45.0/size)
-    val qp = arqp.getQueryPlan(q1, dataMap).get
+    val qp = arqp.getQueryPlan(q1, dataMap, boundsMap).get
 
     val rangeString = qp.ranges.head.getStartKey.getRow.toString
     val encodedDouble = rangeString.split("~")(1)
