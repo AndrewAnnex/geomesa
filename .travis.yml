@@ -2,4 +2,6 @@
 script:
   - sudo rm /etc/mavenrc
   - export MAVEN_OPTS="-Xmx2469m -XX:MaxPermSize=512m"
-  - mvn clean install
+  - mvn clean install -q
+after_success:
+  - mvn cobertura:cobertura coveralls:cobertura

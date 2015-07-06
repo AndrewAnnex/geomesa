@@ -961,6 +961,8 @@
     </dependencyManagement>
 
     <build>
+        <!--<sourceDirectory>/src/main/scala</sourceDirectory>-->
+        <!--<testSourceDirectory>src/test/scala</testSourceDirectory>-->
         <testResources>
             <testResource>
                 <directory>src/test/resources</directory>
@@ -1002,6 +1004,29 @@
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>cobertura-maven-plugin</artifactId>
+                <version>2.6</version>
+                <configuration>
+                    <instrumentation>
+                        <excludes>
+                            <exclude>**/*$*</exclude>
+                            <exclude>**/*$</exclude>
+                        </excludes>
+                    </instrumentation>
+                    <format>xml</format>
+                    <maxmem>512m</maxmem>
+                    <aggregate>true</aggregate>
+                    <check/>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.eluder.coveralls</groupId>
+                <artifactId>coveralls-maven-plugin</artifactId>
+                <version>2.2.0</version>
+            </plugin>
+
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
