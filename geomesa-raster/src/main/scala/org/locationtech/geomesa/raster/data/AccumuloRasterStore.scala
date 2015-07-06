@@ -79,11 +79,10 @@ class AccumuloRasterStore(val connector: Connector,
 
   // TODO: WCS: GEOMESA-585 Add ability to use arbitrary schemas
   val schema = RasterIndexSchema("")
-  val queryPlanner = AccumuloRasterQueryPlanner
 
-  private val tableOps    = connector.tableOperations()
-  private val securityOps = connector.securityOperations
-  private val profileTable  = s"${tableName}_queries"
+  private val tableOps       = connector.tableOperations()
+  private val securityOps    = connector.securityOperations
+  private val profileTable   = s"${tableName}_queries"
   private def getBoundsRowID = tableName + "_bounds"
   
   //TODO: WCS: this needs to be implemented .. or  maybe not
@@ -116,7 +115,7 @@ class AccumuloRasterStore(val connector: Connector,
   def getRasters(rasterQuery: RasterQuery)(implicit timings: Timings): Iterator[Raster] = {
     profile("scanning") {
       val batchScanner = connector.createBatchScanner(tableName, authorizationsProvider.getAuthorizations, numQThreads)
-      val plan = queryPlanner.getQueryPlan(rasterQuery, getResToGeoHashLenMap, getResToBoundsMap)
+      val plan = AccumuloRasterQueryPlanner.getQueryPlan(rasterQuery, getResToGeoHashLenMap, getResToBoundsMap)
       plan match {
         case Some(qp) =>
           configureBatchScanner(batchScanner, qp)
@@ -150,20 +149,48 @@ class AccumuloRasterStore(val connector: Connector,
 
   def getAvailableGeoHashLengths: Set[Int] = getResToGeoHashLenMap.values().toSet
 
-  def getResToGeoHashLenMap: ImmutableSetMultimap[Double, Int] = AccumuloRasterStore.geoHashLenCache.get(tableName, resToGeoHashLenMapCallable)
+  def getResToGeoHashLenMap: ImmutableSetMultimap[Double, Int] =
+    AccumuloRasterStore.geoHashLenCache.get(tableName, resToGeoHashLenMapCallable)
 
   def resToGeoHashLenMapCallable = new Callable[ImmutableSetMultimap[Double, Int]] {
     override def call(): ImmutableSetMultimap[Double, Int] = {
-      val scanResultingKeys = metaScanner().map(_.getKey).toSeq
-      val geohashlens = scanResultingKeys.map(_.getColumnFamily.toString).map(lexiDecodeStringToInt)
-      val resolutions = scanResultingKeys.map(_.getColumnQualifier.toString).map(lexiDecodeStringToDouble)
       val m = new ImmutableSetMultimap.Builder[Double, Int]()
-      (resolutions zip geohashlens).foreach(x => m.put(x._1, x._2))
+      for {
+        k <- metaScanner().map(_.getKey)
+      } {
+        val resolution = lexiDecodeStringToDouble(k.getColumnQualifier.toString)
+        val geohashlen = lexiDecodeStringToInt(k.getColumnFamily.toString)
+        m.put(resolution, geohashlen)
+      }
       m.build()
     }
   }
 
-  def getGridRange(): GridEnvelope2D = {
+  def getResToBoundsMap: ImmutableMap[Double, BoundingBox] =
+    AccumuloRasterStore.extentCache.get(tableName, resToBoundsCallable)
+
+  def resToBoundsCallable = new Callable[ImmutableMap[Double, BoundingBox]] {
+    override def call(): ImmutableMap[Double, BoundingBox] = {
+      val m = new ImmutableMap.Builder[Double, BoundingBox]()
+      for {
+        kv <- metaScanner()
+      } {
+        val resolution = lexiDecodeStringToDouble(kv.getKey.getColumnQualifier.toString)
+        val bounds = valueToBbox(kv.getValue)
+        m.put(resolution, bounds)
+      }
+      m.build()
+    }
+  }
+
+  def metaScanner = () => {
+    ensureBoundsTableExists()
+    val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths)
+    scanner.setRange(new Range(getBoundsRowID))
+    SelfClosingScanner(scanner)
+  }
+
+  def getGridRange: GridEnvelope2D = {
     val bounds = getBounds
     val resolutions = getAvailableResolutions()
     // If no resolutions are available, then we have an empty table so assume 1.0 for now
@@ -174,28 +201,8 @@ class AccumuloRasterStore(val connector: Connector,
     new GridEnvelope2D(0, 0, width, height)
   }
 
-  def getResToBoundsMap: ImmutableMap[Double, BoundingBox] = AccumuloRasterStore.extentCache.get(tableName, resToBoundsCallable)
-
-  def resToBoundsCallable = new Callable[ImmutableMap[Double, BoundingBox]] {
-    override def call(): ImmutableMap[Double, BoundingBox] = {
-      val kvs = metaScanner().toVector
-      val resolutions = kvs.map(_.getKey.getColumnQualifier.toString).map(lexiDecodeStringToDouble)
-      val bounds = kvs.map(_.getValue).map(valueToBbox)
-      val m = new ImmutableMap.Builder[Double, BoundingBox]()
-      (resolutions zip bounds).foreach(x => m.put(x._1, x._2))
-      m.build()
-    }
-  }
-
-  val metaScanner = () => {
-    ensureBoundsTableExists()
-    val scanner = connector.createScanner(GEOMESA_RASTER_BOUNDS_TABLE, getAuths)
-    scanner.setRange(new Range(getBoundsRowID))
-    SelfClosingScanner(scanner)
-  }
-
   def adaptIteratorToChunks(iter: java.util.Iterator[Entry[Key, Value]]): Iterator[Raster] = {
-    iter.map{ entry => schema.decode((entry.getKey, entry.getValue)) }
+    iter.map(entry => schema.decode((entry.getKey, entry.getValue)))
   }
 
   private def dateToAccTimestamp(dt: DateTime): Long =  dt.getMillis / 1000

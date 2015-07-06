@@ -78,8 +78,8 @@ class AccumuloRasterStoreQueryIntegratedTest extends Specification {
       rasters.length must beEqualTo(1)
 
       // test the bounds
-      theStore.getResToGeoHashLenMap().isEmpty must beFalse
-      val theBounds = theStore.getBounds()
+      theStore.getResToGeoHashLenMap.isEmpty must beFalse
+      val theBounds = theStore.getBounds
       theBounds must beAnInstanceOf[BoundingBox]
       theBounds.maxLon must beEqualTo(50.0)
       theBounds.maxLat must beEqualTo(50.0)
