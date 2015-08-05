@@ -1086,7 +1086,7 @@
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
-                    <argLine>${maven.test.jvmargs}</argLine>
+                    <argLine>${argLine}${maven.test.jvmargs}</argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -1126,15 +1126,22 @@
                 <version>0.7.5.201505241946</version>
                 <executions>
                   <execution>
+                    <id>default-prepare-agent</id>
                     <goals>
                       <goal>prepare-agent</goal>
                     </goals>
                   </execution>
                   <execution>
-                    <id>report</id>
-                    <phase>test</phase>
+                    <id>default-report</id>
+                    <phase>prepare-package</phase>
                     <goals>
-                      <goal>report</goal>
+                        <goal>report</goal>
+                    </goals>
+                  </execution>
+                  <execution>
+                    <id>default-check</id>
+                    <goals>
+                        <goal>check</goal>
                     </goals>
                   </execution>
                 </executions>
