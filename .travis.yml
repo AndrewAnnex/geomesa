@@ -3,3 +3,5 @@ script:
   - sudo rm /etc/mavenrc
   - export MAVEN_OPTS="-Xmx2469m -XX:MaxPermSize=512m"
   - mvn clean install -T2 | grep -v -e 'Downloading:' -e 'Downloaded:'
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
