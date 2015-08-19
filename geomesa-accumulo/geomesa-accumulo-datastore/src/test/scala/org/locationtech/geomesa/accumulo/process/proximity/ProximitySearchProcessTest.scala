@@ -1,10 +1,10 @@
-/***********************************************************************
-* Copyright (c) 2013-2015 Commonwealth Computer Research, Inc.
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Apache License, Version 2.0 which
-* accompanies this distribution and is available at
-* http://www.opensource.org/licenses/apache2.0.php.
-*************************************************************************/
+/** *********************************************************************
+  * Copyright (c) 2013-2015 Commonwealth Computer Research, Inc.
+  * All rights reserved. This program and the accompanying materials
+  * are made available under the terms of the Apache License, Version 2.0 which
+  * accompanies this distribution and is available at
+  * http://www.opensource.org/licenses/apache2.0.php.
+  * ************************************************************************/
 
 package org.locationtech.geomesa.accumulo.process.proximity
 
@@ -28,86 +28,87 @@ import scala.collection.JavaConversions._
 @RunWith(classOf[JUnitRunner])
 class ProximitySearchProcessTest extends Specification {
 
-   sequential
+  sequential
 
-   val dtgField = org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD
-   val geotimeAttributes = s"*geom:Geometry:srid=4326,$dtgField:Date"
+  val dtgField = org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD
+  val geotimeAttributes = s"*geom:Geometry:srid=4326,$dtgField:Date"
 
-   def createStore: AccumuloDataStore =
-   // the specific parameter values should not matter, as we
-   // are requesting a mock data store connection to Accumulo
-     DataStoreFinder.getDataStore(Map(
-       "instanceId"        -> "mycloud",
-       "zookeepers"        -> "zoo1:2181,zoo2:2181,zoo3:2181",
-       "user"              -> "myuser",
-       "password"          -> "mypassword",
-       "auths"             -> "A,B,C",
-       "tableName"         -> "testwrite",
-       "useMock"           -> "true",
-       "featureEncoding"   -> "avro")).asInstanceOf[AccumuloDataStore]
+  def createStore: AccumuloDataStore = {
+    // the specific parameter values should not matter, as we
+    // are requesting a mock data store connection to Accumulo
+    DataStoreFinder.getDataStore(Map(
+      "instanceId" -> "mycloud",
+      "zookeepers" -> "zoo1:2181,zoo2:2181,zoo3:2181",
+      "user" -> "myuser",
+      "password" -> "mypassword",
+      "auths" -> "A,B,C",
+      "tableName" -> "testwrite",
+      "useMock" -> "true",
+      "featureEncoding" -> "avro")).asInstanceOf[AccumuloDataStore]
+  }
 
-     val sftName = "geomesaProximityTestType"
-     val sft = SimpleFeatureTypes.createType(sftName, s"type:String,$geotimeAttributes")
-     sft.getUserData()(Constants.SF_PROPERTY_START_TIME) = dtgField
+  val sftName = "geomesaProximityTestType"
+  val sft = SimpleFeatureTypes.createType(sftName, s"type:String,$geotimeAttributes")
+  sft.getUserData()(Constants.SF_PROPERTY_START_TIME) = dtgField
 
-     val ds = createStore
+  val ds = createStore
 
-     ds.createSchema(sft)
-     val fs = ds.getFeatureSource(sftName).asInstanceOf[AccumuloFeatureStore]
+  ds.createSchema(sft)
+  val fs = ds.getFeatureSource(sftName).asInstanceOf[AccumuloFeatureStore]
 
-    val featureCollection = new DefaultFeatureCollection(sftName, sft)
+  val featureCollection = new DefaultFeatureCollection(sftName, sft)
 
-    List("a", "b").foreach { name =>
-      List(1, 2, 3, 4).zip(List(45, 46, 47, 48)).foreach { case (i, lat) =>
-        val sf = AvroSimpleFeatureFactory.buildAvroFeature(sft, List(), name + i.toString)
-        sf.setDefaultGeometry(WKTUtils.read(f"POINT($lat%d $lat%d)"))
-        sf.setAttribute(org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD, new DateTime("2011-01-01T00:00:00Z", DateTimeZone.UTC).toDate)
-        sf.setAttribute("type", name)
-        sf.getUserData()(Hints.USE_PROVIDED_FID) = java.lang.Boolean.TRUE
-        featureCollection.add(sf)
-      }
+  List("a", "b").foreach { name =>
+    List(1, 2, 3, 4).zip(List(45, 46, 47, 48)).foreach { case (i, lat) =>
+      val sf = AvroSimpleFeatureFactory.buildAvroFeature(sft, List(), name + i.toString)
+      sf.setDefaultGeometry(WKTUtils.read(f"POINT($lat%d $lat%d)"))
+      sf.setAttribute(org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD, new DateTime("2011-01-01T00:00:00Z", DateTimeZone.UTC).toDate)
+      sf.setAttribute("type", name)
+      sf.getUserData()(Hints.USE_PROVIDED_FID) = java.lang.Boolean.TRUE
+      featureCollection.add(sf)
     }
+  }
 
-    // write the feature to the store
-    val res = fs.addFeatures(featureCollection)
+  // write the feature to the store
+  val res = fs.addFeatures(featureCollection)
 
-    val geoFactory = JTSFactoryFinder.getGeometryFactory
+  val geoFactory = JTSFactoryFinder.getGeometryFactory
 
-    def getPoint(lat: Double, lon: Double, meters: Double) =
-      GeometryUtils.farthestPoint(geoFactory.createPoint(new Coordinate(lat, lon)), meters)
+  def getPoint(lat: Double, lon: Double, meters: Double) =
+    GeometryUtils.farthestPoint(geoFactory.createPoint(new Coordinate(lat, lon)), meters)
 
-   "GeomesaProximityQuery" should {
-     "find things close by" in {
-       import org.locationtech.geomesa.utils.geotools.Conversions._
-       val p1 = getPoint(45, 45, 99)
-       WKTUtils.read("POINT(45 45)").bufferMeters(99.1).intersects(p1) must beTrue
-       WKTUtils.read("POINT(45 45)").bufferMeters(100).intersects(p1) must beTrue
-       WKTUtils.read("POINT(45 45)").bufferMeters(98).intersects(p1) must beFalse
-       val p2 = getPoint(46, 46, 99)
-       val p3 = getPoint(47, 47, 99)
+  "GeomesaProximityQuery" should {
+    "find things close by" in {
+      import org.locationtech.geomesa.utils.geotools.Conversions._
+      val p1 = getPoint(45, 45, 99)
+      WKTUtils.read("POINT(45 45)").bufferMeters(99.1).intersects(p1) must beTrue
+      WKTUtils.read("POINT(45 45)").bufferMeters(100).intersects(p1) must beTrue
+      WKTUtils.read("POINT(45 45)").bufferMeters(98).intersects(p1) must beFalse
+      val p2 = getPoint(46, 46, 99)
+      val p3 = getPoint(47, 47, 99)
 
 
-       val inputFeatures = new DefaultFeatureCollection(sftName, sft)
-       List(1,2,3).zip(List(p1, p2, p3)).foreach  { case (i, p) =>
-         val sf = AvroSimpleFeatureFactory.buildAvroFeature(sft, List(), i.toString)
-         sf.setDefaultGeometry(p)
-         sf.setAttribute(org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD, new DateTime("2011-01-01T00:00:00Z", DateTimeZone.UTC).toDate)
-         sf.setAttribute("type", "fake")
-         sf.getUserData()(Hints.USE_PROVIDED_FID) = java.lang.Boolean.TRUE
-         inputFeatures.add(sf)
-       }
+      val inputFeatures = new DefaultFeatureCollection(sftName, sft)
+      List(1, 2, 3).zip(List(p1, p2, p3)).foreach { case (i, p) =>
+        val sf = AvroSimpleFeatureFactory.buildAvroFeature(sft, List(), i.toString)
+        sf.setDefaultGeometry(p)
+        sf.setAttribute(org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD, new DateTime("2011-01-01T00:00:00Z", DateTimeZone.UTC).toDate)
+        sf.setAttribute("type", "fake")
+        sf.getUserData()(Hints.USE_PROVIDED_FID) = java.lang.Boolean.TRUE
+        inputFeatures.add(sf)
+      }
 
-       val dataFeatures = fs.getFeatures()
+      val dataFeatures = fs.getFeatures()
 
-       dataFeatures.size should be equalTo 8
-       val prox = new ProximitySearchProcess
-       prox.execute(inputFeatures, dataFeatures, 50).size should be equalTo 0
-       prox.execute(inputFeatures, dataFeatures, 90).size should be equalTo 0
-       prox.execute(inputFeatures, dataFeatures, 99.1).size should be equalTo 6
-       prox.execute(inputFeatures, dataFeatures, 100).size should be equalTo 6
-       prox.execute(inputFeatures, dataFeatures, 101).size should be equalTo 6
-     }
-   }
+      dataFeatures.size should be equalTo 8
+      val prox = new ProximitySearchProcess
+      prox.execute(inputFeatures, dataFeatures, 50.0).size should be equalTo 0
+      prox.execute(inputFeatures, dataFeatures, 90.0).size should be equalTo 0
+      prox.execute(inputFeatures, dataFeatures, 99.1).size should be equalTo 6
+      prox.execute(inputFeatures, dataFeatures, 100.0).size should be equalTo 6
+      prox.execute(inputFeatures, dataFeatures, 101.0).size should be equalTo 6
+    }
+  }
 
   "GeomesaProximityQuery" should {
     "work on non-accumulo feature sources" in {
@@ -121,7 +122,7 @@ class ProximitySearchProcessTest extends Specification {
 
 
       val inputFeatures = new DefaultFeatureCollection(sftName, sft)
-      List(1,2,3).zip(List(p1,p2,p3)).foreach  { case (i, p) =>
+      List(1, 2, 3).zip(List(p1, p2, p3)).foreach { case (i, p) =>
         val sf = AvroSimpleFeatureFactory.buildAvroFeature(sft, List(), i.toString)
         sf.setDefaultGeometry(p)
         sf.setAttribute(org.locationtech.geomesa.accumulo.process.tube.DEFAULT_DTG_FIELD, new DateTime("2011-01-01T00:00:00Z", DateTimeZone.UTC).toDate)
@@ -145,12 +146,12 @@ class ProximitySearchProcessTest extends Specification {
 
       nonAccumulo.size should be equalTo 8
       val prox = new ProximitySearchProcess
-      prox.execute(inputFeatures, nonAccumulo, 30).size should be equalTo 0
-      prox.execute(inputFeatures, nonAccumulo, 98).size should be equalTo 0
+      prox.execute(inputFeatures, nonAccumulo, 30.0).size should be equalTo 0
+      prox.execute(inputFeatures, nonAccumulo, 98.0).size should be equalTo 0
       prox.execute(inputFeatures, nonAccumulo, 99.0001).size should be equalTo 6
-      prox.execute(inputFeatures, nonAccumulo, 100).size should be equalTo 6
-      prox.execute(inputFeatures, nonAccumulo, 101).size should be equalTo 6
+      prox.execute(inputFeatures, nonAccumulo, 100.0).size should be equalTo 6
+      prox.execute(inputFeatures, nonAccumulo, 101.0).size should be equalTo 6
     }
   }
 
- }
+}
