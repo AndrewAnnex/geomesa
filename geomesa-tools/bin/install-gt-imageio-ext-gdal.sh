@@ -15,16 +15,19 @@ else
     osgeo_url='http://download.osgeo.org'
     mvn_url='http://central.maven.org'
 
-    url_gtimageioextgdal="${osgeo_url}/webdav/geotools/org/geotools/gt-imageio-ext-gdal/14.1/gt-imageio-ext-gdal-14.1.jar"
+    gt_version="14.1"
+    jarbasename="gt-imageio-ext-gdal"
+    jarname="${jarbasename}-${gt_version}.jar"
+    url_gtimageioextgdal="${osgeo_url}/webdav/geotools/org/geotools/${jarbasename}/${gt_version}/${jarname}"
 
-    read -r -p "GeoTools-imageio-ext-gdal is GNU Lesser General Public licensed and is not distributed with GeoMesa...are you sure you want to install it from $url_gtimageioextgdal ? [Y/n]" confirm
+    read -r -p "GeoTools-imageio-ext-gdal ${gt_version} is GNU Lesser General Public licensed and is not distributed with GeoMesa...are you sure you want to install it from $url_gtimageioextgdal ? [Y/n]" confirm
     confirm=${confirm,,} #lowercasing
     if [[ $confirm =~ ^(yes|y) ]]; then
         echo "Trying to install GeoTools-imageio-ext-gdal from $url_gtimageioextgdal to $GEOMESA_HOME"
-        wget -O $GEOMESA_HOME/lib/gt-imageio-ext-gdal-14.1.jar $url_gtimageioextgdal \
-            && chmod 0755 $GEOMESA_HOME/lib/gt-imageio-ext-gdal-14.1.jar \
-            && echo "Successfully installed gt-imageio-ext-gdal to $GEOMESA_HOME"
+        wget -O "$GEOMESA_HOME/lib/${jarname}" $url_gtimageioextgdal \
+            && chmod 0755 $GEOMESA_HOME/lib/$jarname \
+            && echo "Successfully installed ${jarname} to $GEOMESA_HOME"
     else
-        echo "Cancelled installation of gt-imageio-ext-gdal 14.1"
+        echo "Cancelled installation of gt-imageio-ext-gdal ${gt_version}"
     fi
 fi

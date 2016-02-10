@@ -13,12 +13,15 @@ if [[ (-z "$GEOMESA_HOME") ]]; then
     exit
 else
     imageio_version='1.1.13'
+    imageio_gdal_bindings_version='1.9.2'
+    partial_url='webdav/geotools/it/geosolutions/imageio-ext'
     osgeo_url='http://download.osgeo.org'
+    imageio_gdal_bindings_jarname="imageio-ext-gdal-bindings-${imageio_gdal_bindings_version}.jar"
+    imageio_gdal_bindings_url="${osgeo_url}/${partial_url}/imageio-ext-gdal-bindings/${imageio_gdal_bindings_version}/${imageio_gdal_bindings_jarname}"
 
     imageio_jars=(\
         imageio-ext-gdalarcbinarygrid \
         imageio-ext-gdalframework \
-        imageio-ext-gdal-bindings \
         imageio-ext-gdaldted \
         imageio-ext-gdalecw \
         imageio-ext-gdalecwjp2 \
@@ -47,10 +50,14 @@ else
             thisJar="${x}-${imageio_version}.jar"
             thisURL="${osgeo_url}/webdav/geotools/it/geosolutions/imageio-ext/${x}/${imageio_version}/${thisJar}"
             thisDownloadPath="$GEOMESA_HOME/lib/$thisJar"
-            wget -O $thisDownloadPath $thisURL \
-                && chmod 0755 "${thisDownloadPath}" \
+            wget -O ${thisDownloadPath} ${thisURL} \
+                && chmod 0640 "${thisDownloadPath}" \
                 && echo "Successfully installed ${thisJar} to ${GEOMESA_HOME}";
         done
+        imageio_gdal_bindings_downloadpath="$GEOMESA_HOME/lib/$imageio_gdal_bindings_jarname"
+        wget -O ${imageio_gdal_bindings_downloadpath} ${imageio_gdal_bindings_url} \
+            && chmod 0640 "${imageio_gdal_bindings_downloadpath}" \
+            && echo "Successfully installed ${imageio_gdal_bindings_jarname} to ${GEOMESA_HOME}"
     else
         echo "Cancelled installation of Imageio-ext 1.1.13"
     fi
