@@ -18,6 +18,12 @@ The class `WKTFileHandler` serves as an example of that latter approach.
 `FileHandler` implementations are loaded at runtime by the Java ServiceLoader.  As such, available 
 implementations should have their classname registered in `META-INF/services/org.locationtech.geomesa.blob.core.handlers.FileHandler`.
 
+## Scala and Java api
+
+The BlobStore can be used programmatically via the Scala or Java apis.
+The Java api is provided as a convenience wrapper for the Scala api.
+The BlobStore can also be used in a light-weight manner by directly ingesting byte arrays paired with metadata string maps.
+
 ## REST api
 
 The RESTful api for the Blobstore can be easily utilized via cURL.

@@ -991,3 +991,4 @@ confirm that ``geomesa ingest`` can properly read the updated file.
         }
       ]
     }
+
