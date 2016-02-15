@@ -16,9 +16,9 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.accumulo.core.data.{Key, Mutation, Range, Value}
 import org.apache.accumulo.core.security.Authorizations
 import org.apache.hadoop.io.Text
+import org.geotools.data.Query
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureStore
-import org.geotools.data.{Query, Transaction}
 import org.locationtech.geomesa.accumulo.AccumuloVersion
 import org.locationtech.geomesa.accumulo.data.{AccumuloDataStore, _}
 import org.locationtech.geomesa.accumulo.util.{GeoMesaBatchWriterConfig, SelfClosingIterator}
@@ -51,7 +51,7 @@ class AccumuloBlobStore(ds: AccumuloDataStore) extends LazyLogging with BlobStor
   }
 
   def put(bytes: Array[Byte], params: JMap[String, String]): String = {
-    val sf = BlobStoreFileInputStreamHandler.buildSF(params)
+    val sf = BlobStoreGenericHandler.buildSF(params)
     putInternalSF(sf, bytes)
   }
 
@@ -124,18 +124,7 @@ class AccumuloBlobStore(ds: AccumuloDataStore) extends LazyLogging with BlobStor
 
   private def deleteFeature(id: String): Unit = {
     val removalFilter = Filters.ff.id(Filters.ff.featureId(id))
-    val fd = ds.getFeatureWriter(blobFeatureTypeName, removalFilter, Transaction.AUTO_COMMIT)
-    try {
-      while (fd.hasNext) {
-        fd.next()
-        fd.remove()
-      }
-    } catch {
-      case e: Exception =>
-        logger.error("Couldn't remove feature from blobstore", e)
-    } finally {
-      fd.close()
-    }
+    fs.removeFeatures(removalFilter)
   }
 
 }

@@ -49,7 +49,7 @@ public class AccumuloGeoMesaBlobStoreTest {
     }
 
     @Test
-    public void testBlobStoreIngestQueryAndDelete() {
+    public void testBlobStoreIngestAndQueryUsingFileHandler() {
         URL file = getClass().getClassLoader().getResource("testFile.txt");
         if (file == null) {
             Assert.fail("testFile.txt not found in classloader resources");
@@ -72,6 +72,7 @@ public class AccumuloGeoMesaBlobStoreTest {
             Tuple2<byte[], String> result = agbs.get(id.get());
             assertEquals(result._2, "testFile.txt");
 
+            // cleanup
             agbs.delete(id.get());
 
             try {
@@ -80,6 +81,7 @@ public class AccumuloGeoMesaBlobStoreTest {
                 e.printStackTrace();
             }
             Iterator<String> postDeleteIds = agbs.getIds(Filter.INCLUDE);
+            // This test can fail if store has features other than what was added in this test
             assertFalse(postDeleteIds.hasNext());
         }
 
@@ -99,6 +101,13 @@ public class AccumuloGeoMesaBlobStoreTest {
 
         Tuple2<byte[], String> result = agbs.get(id);
         assertEquals(result._2, "testrandomarray.txt");
+
+        // cleanup
+        agbs.delete(id);
+
+        Iterator<String> postDeleteIds = agbs.getIds(Filter.INCLUDE);
+        // This test can fail if store has features other than what was added in this test
+        assertFalse(postDeleteIds.hasNext());
     }
 
 }
