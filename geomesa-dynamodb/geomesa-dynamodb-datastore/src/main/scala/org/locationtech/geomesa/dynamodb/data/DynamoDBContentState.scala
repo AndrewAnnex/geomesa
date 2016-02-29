@@ -28,11 +28,12 @@ class DynamoDBContentState(entry: ContentEntry, catalog: Table) extends ContentS
 
   //TODO: do I need a Select or a Projection?
   def geoTimeQuery(pkz: Int, z3min: Long, z3max: Long): QuerySpec = new QuerySpec()
+    .withHashKey(DynamoDBDataStore.geomesaKeyHash, pkz)
     .withRangeKeyCondition(genRangeKey(z3min, z3max))
     .withProjectionExpression(DynamoDBDataStore.serId)
 
   private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition =
-    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyHash).between(z3min, z3max)
+    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyRange).between(z3min, z3max)
 
   private def getBuilder = {
     val builder = new SimpleFeatureBuilder(sft)

@@ -31,7 +31,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
                            table: Table)
   extends ContentFeatureStore(entry, Query.ALL) {
 
-  case class RowAndColumnQueryPlan(row: Int, lz3: Long, uz3: Long, contained: Boolean)
+  case class HashAndRangeQueryPlan(row: Int, lz3: Long, uz3: Long, contained: Boolean)
 
   val WHOLE_WORLD = new ReferencedEnvelope(-180.0, 180.0, -90.0, 90.0, DefaultGeographicCRS.WGS84)
 
@@ -72,7 +72,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     contentState.table.scan(contentState.ALL_QUERY).iterator().map(i => contentState.serializer.deserialize(i.getBinary(DynamoDBDataStore.serId)))
   }
 
-  def planQuery(query: Query): GenTraversable[RowAndColumnQueryPlan] = {
+  def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {
     import org.locationtech.geomesa.filter._
     import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
@@ -85,9 +85,9 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     val startWeeks = DynamoDBPrimaryKey.epochWeeks(interval.getStart).getWeeks
     val endWeeks   = DynamoDBPrimaryKey.epochWeeks(interval.getEnd).getWeeks
 
-    val zRanges = DynamoDBPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy)
+    val z3Ranges = DynamoDBPrimaryKey.SFC3D.ranges((lx, ly), (ux, uy), (startWeeks, endWeeks))
 
-    val rows = (startWeeks to endWeeks).map { dt => getRowKeys(zRanges, interval, startWeeks, endWeeks, dt)}
+    val rows = (startWeeks to endWeeks).map { dt => getRowKeys(z3Ranges, interval, startWeeks, endWeeks, dt)}
 
     val plans =
       rows.flatMap { case ((s, e), rowRanges) =>
@@ -115,22 +115,22 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     (seconds, shiftedRanges)
   }
 
-  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[RowAndColumnQueryPlan] = {
+  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
     rowRanges.flatMap { r =>
       val DynamoDBPrimaryKey.Key(_, _, _, _, z) = DynamoDBPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = DynamoDBPrimaryKey.SFC2D.bound(z)
-      val z3ranges = DynamoDBPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e))
+      val z2ranges = DynamoDBPrimaryKey.SFC2D.toRanges(minx, miny, maxx, maxy)
 
-      z3ranges.map { ir =>
+      z2ranges.map { ir =>
         val (l, u, contains) = ir.tuple
-        RowAndColumnQueryPlan(r, l, u, contains)
+        HashAndRangeQueryPlan(r, l, u, contains)
       }
     }
 
   }
 
-  def executeGeoTimeQuery(query: Query, plans: GenTraversable[RowAndColumnQueryPlan]): GenTraversable[SimpleFeature] = {
-    val results = plans.map { case RowAndColumnQueryPlan(r, l, u, c) =>
+  def executeGeoTimeQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): GenTraversable[SimpleFeature] = {
+    val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
       val q = contentState.geoTimeQuery(r, l, u)
       val res = contentState.table.query(q)
       (c, res)
@@ -140,8 +140,8 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     }
   }
 
-  def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[RowAndColumnQueryPlan]): Int = {
-    val results = plans.map { case RowAndColumnQueryPlan(r, l, u, c) =>
+  def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Int = {
+    val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
       val q = contentState.geoTimeQuery(r, l, u).withSelect(Select.COUNT)
       contentState.table.query(q).getTotalCount // TODO: might not be exactly what we want
     }
