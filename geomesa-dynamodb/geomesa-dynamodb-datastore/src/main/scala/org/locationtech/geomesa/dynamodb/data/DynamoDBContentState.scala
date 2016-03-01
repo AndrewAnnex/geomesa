@@ -33,7 +33,7 @@ class DynamoDBContentState(entry: ContentEntry, catalog: Table) extends ContentS
     .withProjectionExpression(DynamoDBDataStore.serId)
 
   private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition =
-    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyRange).between(z3min, z3max)
+    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyRange).between(z3min, z3max) // TODO: may need to add 1 to max
 
   private def getBuilder = {
     val builder = new SimpleFeatureBuilder(sft)

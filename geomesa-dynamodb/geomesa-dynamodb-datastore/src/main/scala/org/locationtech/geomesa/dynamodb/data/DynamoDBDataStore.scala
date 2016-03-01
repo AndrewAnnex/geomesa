@@ -17,8 +17,11 @@ import com.vividsolutions.jts.geom.Geometry
 import org.geotools.data.Transaction
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource, ContentState}
 import org.geotools.feature.NameImpl
+import org.joda.time.{Seconds, Weeks, DateTime}
+import org.locationtech.geomesa.curve.Z3SFC
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.locationtech.sfcurve.zorder.ZCurve2D
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -135,8 +138,8 @@ object DynamoDBDataStore {
 
   val serId  = "ser"
 
-  val geomesaKeyHash  = "z3"
-  val geomesaKeyRange = "z2andID"
+  val geomesaKeyHash  = "dtgandz2"
+  val geomesaKeyRange = "z3andID"
 
   val featureKeySchema = List(
       new KeySchemaElement().withAttributeName(geomesaKeyHash).withKeyType(KeyType.HASH),
@@ -198,6 +201,38 @@ trait SchemaValidation {
       .getOrElse(throw new IllegalArgumentException("Could not find a valid point geometry"))
 
     cs(featureType)
+  }
+
+}
+
+object DynamoDBPrimaryKey {
+
+  val SFC3D = new Z3SFC
+  val SFC2D = new ZCurve2D(math.pow(2,5).toInt)
+
+  val EPOCH = new DateTime(0)
+  val ONE_WEEK_IN_SECONDS = Weeks.ONE.toStandardSeconds.getSeconds
+
+  def epochWeeks(dtg: DateTime): Weeks = Weeks.weeksBetween(EPOCH, new DateTime(dtg))
+
+  def secondsInCurrentWeek(dtg: DateTime): Int =
+    Seconds.secondsBetween(EPOCH, dtg).getSeconds - epochWeeks(dtg).getWeeks*ONE_WEEK_IN_SECONDS
+
+  case class Key(idx: Int, x: Double, y: Double, dk: Int, z: Int)
+
+  def unapply(idx: Int): Key = {
+    val dk = idx >> 16
+    val z = idx & 0x000000ff
+    val (x, y) = SFC2D.toPoint(z)
+    Key(idx, x, y, dk, z)
+  }
+
+  def apply(dtg: DateTime, x: Double, y: Double): Key = {
+    val dk = epochWeeks(dtg).getWeeks << 16
+    val z = SFC2D.toIndex(x, y).toInt
+    val (rx, ry) = SFC2D.toPoint(z)
+    val idx = dk + z
+    Key(idx, rx, ry, dk, z)
   }
 
 }

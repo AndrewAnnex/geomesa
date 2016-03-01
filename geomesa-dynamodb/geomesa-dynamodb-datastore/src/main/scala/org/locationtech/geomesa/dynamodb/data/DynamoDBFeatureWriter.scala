@@ -13,15 +13,13 @@ import java.util.{Date, UUID}
 
 import com.amazonaws.services.dynamodbv2.document.spec.PutItemSpec
 import com.amazonaws.services.dynamodbv2.document.{Expected, Item, PrimaryKey, Table}
-import com.google.common.primitives.{Longs, Bytes}
+import com.google.common.primitives.{Bytes, Ints, Longs}
 import com.vividsolutions.jts.geom.Geometry
 import org.geotools.data.simple.SimpleFeatureWriter
-import org.joda.time.{DateTime, Seconds, Weeks}
-import org.locationtech.geomesa.curve.Z3SFC
+import org.joda.time.DateTime
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.utils.text.WKBUtils
-import org.locationtech.sfcurve.zorder.ZCurve2D
 import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -84,15 +82,21 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
     val y = geom.getY
     val dtg = new DateTime(curFeature.getAttribute(dtgIndex).asInstanceOf[Date])
 
+    // hash key
+    val pk = DynamoDBPrimaryKey(dtg, x, y)
+    val pkDtg = Ints.toByteArray(pk.dk)
+    val pkZ2 = Ints.toByteArray(pk.z)
+
+    val hash = Bytes.concat(pkDtg, pkZ2)
+
+    // range key
     val secondsInWeek = DynamoDBPrimaryKey.secondsInCurrentWeek(dtg)
-    val z2 = DynamoDBPrimaryKey.SFC2D.toIndex(x, y)
-    val z2idx = Longs.toByteArray(z2)
     val z3 = DynamoDBPrimaryKey.SFC3D.index(x, y, secondsInWeek)
     val z3idx = Longs.toByteArray(z3.z)
 
-    val hash = z3idx
-    val range = Bytes.concat(z2idx, curFeature.getID.getBytes(StandardCharsets.UTF_8))
+    val range = Bytes.concat(z3idx, curFeature.getID.getBytes(StandardCharsets.UTF_8))
 
+    //
     val primaryKey = new PrimaryKey(
       DynamoDBDataStore.geomesaKeyHash, hash,
       DynamoDBDataStore.geomesaKeyRange, range
@@ -133,34 +137,3 @@ class DynamoDBUpdatingFeatureWriter(val sft: SimpleFeatureType, val table: Table
 }
 
 
-object DynamoDBPrimaryKey {
-
-  val SFC3D = new Z3SFC
-  val SFC2D = new ZCurve2D(math.pow(2,5).toInt)
-
-  val EPOCH = new DateTime(0)
-  val ONE_WEEK_IN_SECONDS = Weeks.ONE.toStandardSeconds.getSeconds
-
-  def epochWeeks(dtg: DateTime): Weeks = Weeks.weeksBetween(EPOCH, new DateTime(dtg))
-
-  def secondsInCurrentWeek(dtg: DateTime): Int =
-    Seconds.secondsBetween(EPOCH, dtg).getSeconds - epochWeeks(dtg).getWeeks*ONE_WEEK_IN_SECONDS
-
-  case class Key(idx: Int, x: Double, y: Double, dk: Int, z: Int)
-
-  def unapply(idx: Int): Key = {
-    val dk = idx >> 16
-    val z = idx & 0x000000ff
-    val (x, y) = SFC2D.toPoint(z)
-    Key(idx, x, y, dk, z)
-  }
-
-  def apply(dtg: DateTime, x: Double, y: Double): Key = {
-    val dk = epochWeeks(dtg).getWeeks << 16
-    val z = SFC2D.toIndex(x, y).toInt
-    val (rx, ry) = SFC2D.toPoint(z)
-    val idx = dk + z
-    Key(idx, rx, ry, dk, z)
-  }
-
-}
