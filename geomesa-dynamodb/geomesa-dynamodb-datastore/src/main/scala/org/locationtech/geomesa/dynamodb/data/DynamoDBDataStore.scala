@@ -13,11 +13,11 @@ import java.util
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, Table}
 import com.amazonaws.services.dynamodbv2.model._
 import com.typesafe.scalalogging.LazyLogging
-import com.vividsolutions.jts.geom.Geometry
+import com.vividsolutions.jts.geom.Point
 import org.geotools.data.Transaction
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource, ContentState}
 import org.geotools.feature.NameImpl
-import org.joda.time.{Seconds, Weeks, DateTime}
+import org.joda.time.{DateTime, Seconds, Weeks}
 import org.locationtech.geomesa.curve.Z3SFC
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
@@ -75,7 +75,7 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
               .withAttributeName(attr.getLocalName)
               .withAttributeType(ScalarAttributeType.N)
 
-          case c if classOf[com.vividsolutions.jts.geom.Geometry].isAssignableFrom(c) =>
+          case c if classOf[com.vividsolutions.jts.geom.Point].isAssignableFrom(c) =>
             new AttributeDefinition()
               .withAttributeName(attr.getLocalName)
               .withAttributeType(ScalarAttributeType.B)
@@ -155,7 +155,10 @@ object DynamoDBDataStore {
   val catalogSftAttributeName = "sft"
 
   val catalogKeySchema = List(new KeySchemaElement(catalogKeyHash, KeyType.HASH))
-  val catalogAttributeDescriptions =  List(new AttributeDefinition(catalogSftAttributeName, ScalarAttributeType.S))
+  val catalogAttributeDescriptions =  List(
+    new AttributeDefinition(catalogKeyHash, ScalarAttributeType.S),
+    new AttributeDefinition(catalogSftAttributeName, ScalarAttributeType.S)
+  )
 
   def makeTableName(catalog: String, name: String): String = s"${catalog}_${name}_z3"
 
@@ -197,7 +200,7 @@ trait SchemaValidation {
 
     // validate geometry
     featureType.getAttributeDescriptors
-      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[Geometry]) }
+      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[Point]) }
       .getOrElse(throw new IllegalArgumentException("Could not find a valid point geometry"))
 
     cs(featureType)
