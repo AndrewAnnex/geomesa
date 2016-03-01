@@ -90,7 +90,8 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
       new CreateTableRequest()
         .withTableName(makeTableName(catalog, name))
         .withKeySchema(featureKeySchema)
-        .withAttributeDefinitions(featureAttributeDescriptions ++ attrDefs) //TODO: do we really want to bother with all these other attributes?
+        .withAttributeDefinitions(featureAttributeDescriptions)
+        //.withAttributeDefinitions(featureAttributeDescriptions ++ attrDefs) //TODO: do we really want to bother with all these other attributes?
         .withProvisionedThroughput(new ProvisionedThroughput(rcu, wcu))
 
     // create the table
@@ -155,10 +156,7 @@ object DynamoDBDataStore {
   val catalogSftAttributeName = "sft"
 
   val catalogKeySchema = List(new KeySchemaElement(catalogKeyHash, KeyType.HASH))
-  val catalogAttributeDescriptions =  List(
-    new AttributeDefinition(catalogKeyHash, ScalarAttributeType.S),
-    new AttributeDefinition(catalogSftAttributeName, ScalarAttributeType.S)
-  )
+  val catalogAttributeDescriptions =  List(new AttributeDefinition(catalogKeyHash, ScalarAttributeType.S))
 
   def makeTableName(catalog: String, name: String): String = s"${catalog}_${name}_z3"
 

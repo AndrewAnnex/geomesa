@@ -4,8 +4,11 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.local.embedded.DynamoDBEmbedded
+import com.amazonaws.auth.BasicAWSCredentials
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.amazonaws.services.dynamodbv2.document.DynamoDB
+import com.amazonaws.services.dynamodbv2.local.main.ServerRunner
+import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data.simple.SimpleFeatureStore
 import org.geotools.data.{DataStore, DataStoreFinder, DataUtilities}
@@ -13,6 +16,7 @@ import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
 import org.joda.time.DateTime
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -47,6 +51,14 @@ class DynamoDBDataStoreTest extends Specification {
       val sft = SimpleFeatureTypes.createType("test:nodtg", "name:String,age:Int,*geom:Point:srid=4326")
       ds.createSchema(sft) must throwA[IllegalArgumentException]
       success
+    }
+
+    "write features" >> {
+      val (ds, fs) = initializeDataStore("testwrite")
+      val features = fs.getFeatures().features()
+      features.toList must haveLength(2)
+      features.close()
+      ok
     }
 
   }
@@ -92,14 +104,22 @@ object DynamoDBDataStoreTest {
   tempDBFile.mkdir()
 
   @volatile
-  var api: Option[AmazonDynamoDB] = None
+  var api: Option[DynamoDB] = None
+
+  @volatile
+  var server: DynamoDBProxyServer = null
 
   private val started = new AtomicBoolean(false)
 
   def startServer() = {
     if (started.compareAndSet(false, true)) {
-      val d = DynamoDBEmbedded.create(tempDBFile)
-      api  = Some(d)
+      System.setProperty("sqlite4java.library.path", "/home/aannex/DynamoDBLocal_lib")
+      server = ServerRunner.createServerFromCommandLineArgs(Array("-inMemory", "-port", "9305"))
+      server.start()
+      val d = new AmazonDynamoDBClient(new BasicAWSCredentials("", ""))
+      d.setEndpoint("http://localhost:9305")
+      val db = new DynamoDB(d)
+      api = Some(db)
     }
   }
 
@@ -107,7 +127,7 @@ object DynamoDBDataStoreTest {
     if (started.get()) {
       api match {
         case Some(db) =>
-          db.shutdown()
+          if (server != null) server.stop()
           tempDBFile.delete()
         case None     =>
       }
