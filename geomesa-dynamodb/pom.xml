@@ -19,6 +19,7 @@
 
     <properties>
         <aws-sdk.version>1.10.52</aws-sdk.version>
+        <alternator.version>0.12.0</alternator.version>
     </properties>
 
 
@@ -29,6 +30,12 @@
                 <artifactId>aws-java-sdk</artifactId>
                 <version>${aws-sdk.version}</version>
                 <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.michelboudreau</groupId>
+                <artifactId>alternator</artifactId>
+                <version>${alternator.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
