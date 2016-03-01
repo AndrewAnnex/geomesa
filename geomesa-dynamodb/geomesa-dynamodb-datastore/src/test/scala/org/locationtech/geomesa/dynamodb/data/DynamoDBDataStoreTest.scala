@@ -4,9 +4,8 @@ import java.io.File
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.michelboudreau.alternator.AlternatorDB
-import com.michelboudreau.alternatorv2.AlternatorDBClientV2
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
+import com.amazonaws.services.dynamodbv2.local.embedded.DynamoDBEmbedded
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data.simple.SimpleFeatureStore
 import org.geotools.data.{DataStore, DataStoreFinder, DataUtilities}
@@ -50,9 +49,7 @@ class DynamoDBDataStoreTest extends Specification {
       success
     }
 
-
   }
-
 
   // Teardown, no tests beyond this point
   step {
@@ -90,33 +87,28 @@ class DynamoDBDataStoreTest extends Specification {
 
 object DynamoDBDataStoreTest {
 
-  val client = new AlternatorDBClientV2()
-
-  val storagedir = File.createTempFile("dynamodb","sd")
-  storagedir.delete()
-  storagedir.mkdir()
+  val tempDBFile = File.createTempFile("dynamodb","sd")
+  tempDBFile.delete()
+  tempDBFile.mkdir()
 
   @volatile
-  var testDDB: Option[AlternatorDB] = None
-
-  @volatile
-  var api: Option[DynamoDB] = None
+  var api: Option[AmazonDynamoDB] = None
 
   private val started = new AtomicBoolean(false)
 
   def startServer() = {
     if (started.compareAndSet(false, true)) {
-      api  = Some(new DynamoDB(client))
-      testDDB = Some(new AlternatorDB(9090, storagedir).start())
+      val d = DynamoDBEmbedded.create(tempDBFile)
+      api  = Some(d)
     }
   }
 
   def shutdownServer() = {
     if (started.get()) {
-      testDDB match {
+      api match {
         case Some(db) =>
-          db.stop()
-          storagedir.delete()
+          db.shutdown()
+          tempDBFile.delete()
         case None     =>
       }
     }

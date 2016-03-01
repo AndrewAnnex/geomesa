@@ -19,6 +19,7 @@
 
     <properties>
         <aws-sdk.version>1.10.52</aws-sdk.version>
+        <aws-cloudlocal.version>1.10.5.1</aws-cloudlocal.version>
         <alternator.version>0.12.0</alternator.version>
         <spring.framework.version>3.1.4.RELEASE</spring.framework.version>
     </properties>
@@ -35,9 +36,9 @@
 
             <!-- Test Dependencies-->
             <dependency>
-                <groupId>com.michelboudreau</groupId>
-                <artifactId>alternator</artifactId>
-                <version>${alternator.version}</version>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>DynamoDBLocal</artifactId>
+                <version>${aws-cloudlocal.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>

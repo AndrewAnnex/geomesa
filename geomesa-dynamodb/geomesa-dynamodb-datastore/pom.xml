@@ -47,8 +47,9 @@
         </dependency>
         <!-- Test dependencies -->
         <dependency>
-            <groupId>com.michelboudreau</groupId>
-            <artifactId>alternator</artifactId>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>DynamoDBLocal</artifactId>
+            <version>${aws-cloudlocal.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
