@@ -32,8 +32,7 @@ class DynamoDBDataStoreTest extends Specification {
     "allow access" >> {
       val ds = getDataStore
       ds must not(beNull)
-      ds.dispose()
-      ok
+      success
     }
 
     "create a schema" >> {
@@ -41,16 +40,14 @@ class DynamoDBDataStoreTest extends Specification {
       ds must not(beNull)
       ds.createSchema(SimpleFeatureTypes.createType("test:test", "name:String,age:Int,*geom:Point:srid=4326,dtg:Date"))
       ds.getTypeNames.toSeq must contain("test")
-      ds.dispose()
-      ok
+      success
     }
 
     "fail if no dtg in schema" >> {
       val ds = getDataStore
       val sft = SimpleFeatureTypes.createType("test:nodtg", "name:String,age:Int,*geom:Point:srid=4326")
       ds.createSchema(sft) must throwA[IllegalArgumentException]
-      ds.dispose()
-      ok
+      success
     }
 
 

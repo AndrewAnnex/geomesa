@@ -17,7 +17,7 @@ import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.{DataStore, DataStoreFactorySpi}
 
-class DynamoDBDataStoreFactory extends DataStoreFactorySpi{
+class DynamoDBDataStoreFactory extends DataStoreFactorySpi {
   import DynamoDBDataStoreFactory._
   override def createDataStore(params: util.Map[String, Serializable]): DataStore = {
     val catalog: String = CATALOG.lookUp(params).asInstanceOf[String]
@@ -36,7 +36,7 @@ class DynamoDBDataStoreFactory extends DataStoreFactorySpi{
 
   override def getParametersInfo: Array[Param] = DynamoDBDataStoreFactory.PARAMS
 
-  override def canProcess(params: util.Map[String, Serializable]): Boolean = canProcess(params)
+  override def canProcess(params: util.Map[String, Serializable]): Boolean = canProcessDynamo(params)
 
   override def isAvailable: Boolean = true
 
@@ -51,7 +51,7 @@ object DynamoDBDataStoreFactory {
 
   val PARAMS  = Array(CATALOG, DYNAMODBAPI, RCUS, WCUS)
 
-  def canProcess(params: util.Map[String, Serializable]): Boolean = {
+  def canProcessDynamo(params: util.Map[String, Serializable]): Boolean = {
     params.containsKey(CATALOG.key) && params.containsKey(DYNAMODBAPI.key)
   }
 }
