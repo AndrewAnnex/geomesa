@@ -22,6 +22,7 @@ import org.joda.time.Interval
 import org.locationtech.geomesa.filter._
 import org.locationtech.sfcurve.IndexRange
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+import org.opengis.filter.Filter
 
 import scala.collection.GenTraversable
 import scala.collection.JavaConversions._
@@ -52,9 +53,11 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   }
 
   override def getReaderInternal(query: Query): FeatureReader[SimpleFeatureType, SimpleFeature] = {
+    val (spatial, other) = partitionPrimarySpatials(query.getFilter, contentState.sft)
+
     val iter: Iterator[SimpleFeature] =
-      if(query.equals(Query.ALL) || FilterHelper.isFilterWholeWorld(query.getFilter)) {
-        getAllFeatures
+      if(query.equals(Query.ALL) || spatial.exists(FilterHelper.isFilterWholeWorld)) {
+        getAllFeatures(other)
       } else {
         val plans    = planQuery(query)
         val features = executeGeoTimeQuery(query, plans).toIterator
@@ -68,8 +71,12 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     else                                   new DynamoDBUpdatingFeatureWriter(contentState.sft, contentState.table)
   }
 
-  def getAllFeatures: Iterator[SimpleFeature] = {
-    contentState.table.scan(contentState.ALL_QUERY).iterator().map(i => contentState.serializer.deserialize(i.getBinary(DynamoDBDataStore.serId)))
+  def getAllFeatures(filter: Seq[Filter]): Iterator[SimpleFeature] = {
+    val iter = contentState.table.scan(contentState.ALL_QUERY).iterator()
+    iter.flatMap { i =>
+      val tempSF = convertItemToSF(i)
+      if (filter.forall(_.evaluate(tempSF))) Some(tempSF) else None
+    }
   }
 
   def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {

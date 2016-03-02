@@ -11,7 +11,7 @@ import com.amazonaws.services.dynamodbv2.local.main.ServerRunner
 import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data.simple.SimpleFeatureStore
-import org.geotools.data.{Query, DataStore, DataStoreFinder, DataUtilities}
+import org.geotools.data.{DataStore, DataStoreFinder, DataUtilities, Query}
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
@@ -85,9 +85,7 @@ class DynamoDBDataStoreTest extends Specification {
     }
 
     "run extra-large bbox between queries" >> {
-      skipped("intermittent failure")
       val (ds, fs) = initializeDataStore("testextralargebboxbetweenquery")
-
       val ff = CommonFactoryFinder.getFilterFactory2
       val filt =
         ff.and(ff.bbox("geom", -200.0, -100.0, 200.0, 100.0, "EPSG:4326"),
@@ -96,29 +94,6 @@ class DynamoDBDataStoreTest extends Specification {
             ff.literal(new DateTime("2016-01-01T00:00:00.000Z").toDate),
             ff.literal(new DateTime("2016-01-01T00:15:00.000Z").toDate)))
 
-      val features = fs.getFeatures(filt).features()
-      features.toList must haveLength(1)
-      features.close()
-      ds.dispose()
-      ok
-    }.pendingUntilFixed("fixed large bbox query")
-
-    "run bbox between and attribute queries" >> {
-      import scala.collection.JavaConversions._
-
-      val (ds, fs) = initializeDataStore("testbboxbetweenandattributequery")
-      val ff = CommonFactoryFinder.getFilterFactory2
-      val filt =
-        ff.and(
-          List(
-            ff.bbox("geom", -76.0, 34.0, -74.0, 39.0, "EPSG:4326"),
-            ff.between(
-              ff.property("dtg"),
-              ff.literal(new DateTime("2016-01-01T00:00:00.000Z").toDate),
-              ff.literal(new DateTime("2016-01-08T00:00:00.000Z").toDate)),
-            ff.equals(ff.property("name"), ff.literal("jane"))
-          )
-        )
       val features = fs.getFeatures(filt).features()
       features.toList must haveLength(1)
       features.close()

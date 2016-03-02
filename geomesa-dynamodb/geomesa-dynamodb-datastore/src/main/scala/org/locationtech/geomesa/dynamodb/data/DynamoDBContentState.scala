@@ -25,7 +25,7 @@ class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: T
 
   val serializer = new KryoFeatureSerializer(sft)
 
-  val ALL_QUERY = new ScanSpec
+  val ALL_QUERY = new ScanSpec().withAttributesToGet(DynamoDBDataStore.serId)
 
   //TODO: do I need a Select or a Projection?
   def geoTimeQuery(pkz: Int, z3min: Long, z3max: Long): QuerySpec = new QuerySpec()
