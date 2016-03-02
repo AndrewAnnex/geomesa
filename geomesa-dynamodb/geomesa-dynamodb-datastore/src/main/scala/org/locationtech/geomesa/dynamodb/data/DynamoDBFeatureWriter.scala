@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.util.{Date, UUID}
 
 import com.amazonaws.services.dynamodbv2.document.spec.PutItemSpec
-import com.amazonaws.services.dynamodbv2.document.{Expected, Item, PrimaryKey, Table}
+import com.amazonaws.services.dynamodbv2.document.{Item, PrimaryKey, Table}
 import com.google.common.primitives.{Bytes, Ints, Longs}
 import com.vividsolutions.jts.geom.Geometry
 import org.geotools.data.simple.SimpleFeatureWriter
@@ -123,7 +123,7 @@ class DynamoDBAppendingFeatureWriter(val sft: SimpleFeatureType, val table: Tabl
   override def dynamoDBPut(t: Table, i: Item): Unit = {
     val ps = new PutItemSpec()
       .withItem(i)
-      .withExpected(new Expected(DynamoDBDataStore.geomesaKeyHash).notExist())
+      //.withExpected(new Expected(DynamoDBDataStore.geomesaKeyHash).notExist())
     t.putItem(ps)
   }
 }

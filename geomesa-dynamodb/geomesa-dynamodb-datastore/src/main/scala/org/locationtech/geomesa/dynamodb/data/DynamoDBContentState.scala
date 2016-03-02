@@ -16,10 +16,10 @@ import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.simple.SimpleFeatureType
 
-class DynamoDBContentState(entry: ContentEntry, catalog: Table) extends ContentState(entry) {
+class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: Table) extends ContentState(entry) {
 
-  val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalog)
-  val table: Table = catalog
+  val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalogTable)
+  val table: Table = sftTable
   val builderPool = ObjectPoolFactory(getBuilder, 10)
 
   val serializer = new KryoFeatureSerializer(sft)

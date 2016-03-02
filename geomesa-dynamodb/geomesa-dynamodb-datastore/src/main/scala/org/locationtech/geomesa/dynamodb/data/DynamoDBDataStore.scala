@@ -109,7 +109,8 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
   }
 
   override def createContentState(entry: ContentEntry): ContentState = {
-    new DynamoDBContentState(entry, catalogTable)
+    val sftTable = dynamoDB.getTable(makeTableName(catalog, entry.getTypeName))
+    new DynamoDBContentState(entry, catalogTable, sftTable)
   }
 
   override def dispose(): Unit = if (dynamoDB != null) dynamoDB.shutdown()
