@@ -10,6 +10,7 @@ package org.locationtech.geomesa.dynamodb.data
 
 import com.amazonaws.services.dynamodbv2.document.{RangeKeyCondition, Table}
 import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec}
+import com.google.common.primitives.{Ints, Longs}
 import org.geotools.data.store.{ContentEntry, ContentState}
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
@@ -28,12 +29,17 @@ class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: T
 
   //TODO: do I need a Select or a Projection?
   def geoTimeQuery(pkz: Int, z3min: Long, z3max: Long): QuerySpec = new QuerySpec()
-    .withHashKey(DynamoDBDataStore.geomesaKeyHash, pkz)
+    .withHashKey(DynamoDBDataStore.geomesaKeyHash, Ints.toByteArray(pkz))
     .withRangeKeyCondition(genRangeKey(z3min, z3max))
-    .withProjectionExpression(DynamoDBDataStore.serId)
+    .withAttributesToGet(DynamoDBDataStore.serId)
+    //.withProjectionExpression(DynamoDBDataStore.serId)
 
-  private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition =
-    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyRange).between(z3min, z3max) // TODO: may need to add 1 to max
+  private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition = {
+    val minZ3 = Longs.toByteArray(z3min)
+    val maxZ3 = Longs.toByteArray(z3max)
+    new RangeKeyCondition(DynamoDBDataStore.geomesaKeyRange).between(minZ3, maxZ3) // TODO: may need to add 1 to max
+  }
+
 
   private def getBuilder = {
     val builder = new SimpleFeatureBuilder(sft)

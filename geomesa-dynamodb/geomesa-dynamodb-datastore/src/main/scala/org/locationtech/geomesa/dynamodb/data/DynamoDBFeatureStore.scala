@@ -85,7 +85,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     val startWeeks = DynamoDBPrimaryKey.epochWeeks(interval.getStart).getWeeks
     val endWeeks   = DynamoDBPrimaryKey.epochWeeks(interval.getEnd).getWeeks
 
-    val zRanges = DynamoDBPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy)
+    val zRanges = DynamoDBPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy).toList
 
     val rows = (startWeeks to endWeeks).map { dt => getRowKeys(zRanges, interval, startWeeks, endWeeks, dt)}
 
@@ -119,7 +119,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     rowRanges.flatMap { r =>
       val DynamoDBPrimaryKey.Key(_, _, _, _, z) = DynamoDBPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = DynamoDBPrimaryKey.SFC2D.bound(z)
-      val z3ranges = DynamoDBPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e))
+      val z3ranges = DynamoDBPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e)).toList
 
       z3ranges.map { ir =>
         val (l, u, contains) = ir.tuple
@@ -148,9 +148,9 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     results.sum
   }
 
-  def postProcessResults(query: Query, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterable[SimpleFeature] = {
+  def postProcessResults(query: Query, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
     val filter = query.getFilter
-    val featureIterator = fut.flatMap{ i =>
+    fut.toIterator.flatMap { i =>
       val tempSF = convertItemToSF(i)
       if (!contains) {
         if (filter.evaluate(tempSF)) Some(tempSF) else None
@@ -158,7 +158,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
         Some(tempSF)
       }
     }
-    featureIterator
+    //fut.toIterator.map(convertItemToSF)
   }
 
   private def convertItemToSF(i: Item): SimpleFeature = {
