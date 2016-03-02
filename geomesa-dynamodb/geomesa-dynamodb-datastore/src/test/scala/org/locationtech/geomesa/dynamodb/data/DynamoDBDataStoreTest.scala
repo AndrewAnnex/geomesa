@@ -134,7 +134,8 @@ class DynamoDBDataStoreTest extends Specification {
             ff.literal(new DateTime("2016-01-01T00:00:00.000Z").toDate),
             ff.literal(new DateTime("2016-01-02T00:00:00.000Z").toDate)))
 
-      fs.getCount(new Query("testcount", filt)) mustEqual 1
+      val count = fs.getCount(new Query("testcount", filt))
+      count mustEqual 1
       ds.dispose()
       ok
     }.pendingUntilFixed("fixed return correct counts")

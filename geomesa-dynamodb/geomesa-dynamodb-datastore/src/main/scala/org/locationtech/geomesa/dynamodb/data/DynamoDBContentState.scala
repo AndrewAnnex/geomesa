@@ -10,6 +10,7 @@ package org.locationtech.geomesa.dynamodb.data
 
 import com.amazonaws.services.dynamodbv2.document.{RangeKeyCondition, Table}
 import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec}
+import com.amazonaws.services.dynamodbv2.model.Select
 import com.google.common.primitives.{Ints, Longs}
 import org.geotools.data.store.{ContentEntry, ContentState}
 import org.geotools.feature.simple.SimpleFeatureBuilder
@@ -32,6 +33,11 @@ class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: T
     .withHashKey(DynamoDBDataStore.geomesaKeyHash, Ints.toByteArray(pkz))
     .withRangeKeyCondition(genRangeKey(z3min, z3max))
     .withAttributesToGet(DynamoDBDataStore.serId)
+
+  def geoTimeCountQuery(pkz: Int, z3min: Long, z3max: Long): QuerySpec = new QuerySpec()
+    .withHashKey(DynamoDBDataStore.geomesaKeyHash, Ints.toByteArray(pkz))
+    .withRangeKeyCondition(genRangeKey(z3min, z3max))
+    .withSelect(Select.COUNT)
 
   private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition = {
     val minZ3 = Longs.toByteArray(z3min)

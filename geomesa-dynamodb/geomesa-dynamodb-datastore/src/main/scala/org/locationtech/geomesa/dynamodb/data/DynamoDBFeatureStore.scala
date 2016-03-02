@@ -9,7 +9,6 @@
 package org.locationtech.geomesa.dynamodb.data
 
 import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, QueryOutcome, Table}
-import com.amazonaws.services.dynamodbv2.model.Select
 import com.vividsolutions.jts.geom.Envelope
 import org.geotools.data.simple.DelegateSimpleFeatureReader
 import org.geotools.data.store.{ContentEntry, ContentFeatureStore}
@@ -148,11 +147,13 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   }
 
   def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Int = {
-    val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
-      val q = contentState.geoTimeQuery(r, l, u).withSelect(Select.COUNT)
-      contentState.table.query(q).getTotalCount // TODO: might not be exactly what we want
+    val results = plans.flatMap{ case HashAndRangeQueryPlan(r, l, u, c) =>
+      val q = contentState.geoTimeCountQuery(r, l, u)
+      val res = contentState.table.query(q)
+      res.iterator()
     }
-    results.sum
+    val s = results.size
+    s
   }
 
   def postProcessResults(query: Query, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
