@@ -32,7 +32,6 @@ class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: T
     .withHashKey(DynamoDBDataStore.geomesaKeyHash, Ints.toByteArray(pkz))
     .withRangeKeyCondition(genRangeKey(z3min, z3max))
     .withAttributesToGet(DynamoDBDataStore.serId)
-    //.withProjectionExpression(DynamoDBDataStore.serId)
 
   private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition = {
     val minZ3 = Longs.toByteArray(z3min)

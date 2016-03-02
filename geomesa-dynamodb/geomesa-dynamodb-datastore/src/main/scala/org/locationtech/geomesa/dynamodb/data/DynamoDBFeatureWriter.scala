@@ -14,7 +14,7 @@ import java.util.{Date, UUID}
 import com.amazonaws.services.dynamodbv2.document.spec.PutItemSpec
 import com.amazonaws.services.dynamodbv2.document.{Item, PrimaryKey, Table}
 import com.google.common.primitives.{Bytes, Ints, Longs}
-import com.vividsolutions.jts.geom.Geometry
+import com.vividsolutions.jts.geom.Point
 import org.geotools.data.simple.SimpleFeatureWriter
 import org.joda.time.DateTime
 import org.locationtech.geomesa.features.ScalaSimpleFeature
@@ -59,8 +59,8 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
       case c if c.equals(classOf[java.util.Date]) =>
         item.withLong(desc.getLocalName, attr.asInstanceOf[java.util.Date].getTime)
 
-      case c if classOf[com.vividsolutions.jts.geom.Geometry].isAssignableFrom(c) =>
-        item.withBinary(desc.getLocalName, WKBUtils.write(attr.asInstanceOf[Geometry]))
+      case c if classOf[Point].isAssignableFrom(c) =>
+        item.withBinary(desc.getLocalName, WKBUtils.write(attr.asInstanceOf[Point]))
     }
   }
 
@@ -84,10 +84,7 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
 
     // hash key
     val pk = DynamoDBPrimaryKey(dtg, x, y)
-    val pkDtg = Ints.toByteArray(pk.dk)
-    val pkZ2 = Ints.toByteArray(pk.z)
-
-    val hash = Bytes.concat(pkDtg, pkZ2)
+    val hash = Ints.toByteArray(pk.idx)
 
     // range key
     val secondsInWeek = DynamoDBPrimaryKey.secondsInCurrentWeek(dtg)
@@ -123,7 +120,7 @@ class DynamoDBAppendingFeatureWriter(val sft: SimpleFeatureType, val table: Tabl
   override def dynamoDBPut(t: Table, i: Item): Unit = {
     val ps = new PutItemSpec()
       .withItem(i)
-      //.withExpected(new Expected(DynamoDBDataStore.geomesaKeyHash).notExist())
+      .withConditionExpression(s"attribute_not_exists(${DynamoDBDataStore.geomesaKeyHash})")
     t.putItem(ps)
   }
 }

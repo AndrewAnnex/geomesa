@@ -45,43 +45,6 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
   }
 
   private def createSchemaImpl(featureType: SimpleFeatureType): Unit = {
-    import java.{lang => jl}
-
-    val attrDefs =
-      featureType.getAttributeDescriptors.map { attr =>
-        attr.getType.getBinding match {
-          case c if c.equals(classOf[jl.Boolean]) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType("BOOL")
-
-          case c if c.equals(classOf[jl.Integer]) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType(ScalarAttributeType.N)
-
-          case c if c.equals(classOf[jl.Double]) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType(ScalarAttributeType.N)
-
-          case c if c.equals(classOf[String]) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType(ScalarAttributeType.S)
-
-          case c if c.equals(classOf[java.util.Date]) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType(ScalarAttributeType.N)
-
-          case c if classOf[com.vividsolutions.jts.geom.Point].isAssignableFrom(c) =>
-            new AttributeDefinition()
-              .withAttributeName(attr.getLocalName)
-              .withAttributeType(ScalarAttributeType.B)
-        }
-      }
-
     val name = featureType.getTypeName
     val rcu: Long = featureType.userData[Long](rcuKey).getOrElse(1L)
     val wcu: Long = featureType.userData[Long](wcuKey).getOrElse(1L)
@@ -91,7 +54,6 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
         .withTableName(makeTableName(catalog, name))
         .withKeySchema(featureKeySchema)
         .withAttributeDefinitions(featureAttributeDescriptions)
-        //.withAttributeDefinitions(featureAttributeDescriptions ++ attrDefs) //TODO: do we really want to bother with all these other attributes?
         .withProvisionedThroughput(new ProvisionedThroughput(rcu, wcu))
 
     // create the table

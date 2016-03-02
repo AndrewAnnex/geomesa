@@ -124,7 +124,7 @@ class DynamoDBDataStoreTest extends Specification {
       features.close()
       ds.dispose()
       ok
-    }.pendingUntilFixed("fixed run bbox between and attribute")
+    }
 
     "run poly within and date between queries" >> {
       val (ds, fs) = initializeDataStore("testpolywithinanddtgbetween")
@@ -144,7 +144,7 @@ class DynamoDBDataStoreTest extends Specification {
       features.close()
       ds.dispose()
       ok
-    }.pendingUntilFixed("fixed run poly within and date between")
+    }
 
     "return correct counts" >> {
       val (ds, fs) = initializeDataStore("testcount")
