@@ -103,7 +103,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
         (0, DynamoDBPrimaryKey.ONE_WEEK_IN_SECONDS)
       } else {
         val starts = if (dt == sew) DynamoDBPrimaryKey.secondsInCurrentWeek(interval.getStart) else 0
-        val ends   = if (dt == eew) DynamoDBPrimaryKey.secondsInCurrentWeek(interval.getEnd)   else 0
+        val ends   = if (dt == eew) DynamoDBPrimaryKey.secondsInCurrentWeek(interval.getEnd)   else DynamoDBPrimaryKey.ONE_WEEK_IN_SECONDS
         (starts, ends)
       }
 
