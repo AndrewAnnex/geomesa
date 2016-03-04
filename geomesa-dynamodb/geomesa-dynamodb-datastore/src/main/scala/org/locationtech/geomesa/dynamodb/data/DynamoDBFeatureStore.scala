@@ -122,15 +122,12 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   }
 
   def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
-    rowRanges.flatMap { r =>
+    rowRanges.map { r =>
       val DynamoDBPrimaryKey.Key(_, _, _, _, z) = DynamoDBPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = DynamoDBPrimaryKey.SFC2D.bound(z)
-      val z3ranges = DynamoDBPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e)).toList
-
-      z3ranges.map { ir =>
-        val (l, u, contains) = ir.tuple
-        HashAndRangeQueryPlan(r, l, u, contains)
-      }
+      val min = DynamoDBPrimaryKey.SFC3D.index(minx, miny, s).z
+      val max = DynamoDBPrimaryKey.SFC3D.index(maxx, maxy, e).z
+      HashAndRangeQueryPlan(r, min, max, contained = false)
     }
 
   }
@@ -147,26 +144,24 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   }
 
   def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Int = {
-    val results = plans.flatMap{ case HashAndRangeQueryPlan(r, l, u, c) =>
-      val q = contentState.geoTimeCountQuery(r, l, u)
-      val res = contentState.table.query(q)
-      res.iterator()
-    }
-    val s = results.size
-    s
+    if (plans.size > 10) {
+      -1
+    } else {
+      plans.map{ case HashAndRangeQueryPlan(r, l, u, c) =>
+        val q = contentState.geoTimeCountQuery(r, l, u)
+        val res = contentState.table.query(q)
+        res.getTotalCount}.sum
+      }
   }
 
   def postProcessResults(query: Query, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
-    val filter = query.getFilter
-    fut.toIterator.flatMap { i =>
-      val tempSF = convertItemToSF(i)
-      if (!contains) {
-        if (filter.evaluate(tempSF)) Some(tempSF) else None
-      } else {
-        Some(tempSF)
-      }
+    val sfts = fut.view.toIterator.map(convertItemToSF)
+    if (!contains) {
+      val filter = query.getFilter
+      sfts.filter(filter.evaluate(_))
+    } else {
+      sfts
     }
-    //fut.toIterator.map(convertItemToSF)
   }
 
   private def convertItemToSF(i: Item): SimpleFeature = {
