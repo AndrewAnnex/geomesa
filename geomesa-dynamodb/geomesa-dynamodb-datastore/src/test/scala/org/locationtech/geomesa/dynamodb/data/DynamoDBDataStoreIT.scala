@@ -1,3 +1,11 @@
+/***********************************************************************
+* Copyright (c) 2013-2016 Commonwealth Computer Research, Inc.
+* All rights reserved. This program and the accompanying materials
+* are made available under the terms of the Apache License, Version 2.0
+* which accompanies this distribution and is available at
+* http://www.opensource.org/licenses/apache2.0.php.
+*************************************************************************/
+
 package org.locationtech.geomesa.dynamodb.data
 
 import java.util.UUID
@@ -26,7 +34,6 @@ class DynamoDBDataStoreIT {
     val ds = getDataStore
     assert(ds != null)
     ds.dispose()
-    (0 to 10).foreach(println(_))
   }
 
   @Test
@@ -112,7 +119,7 @@ class DynamoDBDataStoreIT {
   }
 
   @Test(expected = classOf[AssertionError])
-  def returnCorrectCountsTest {
+  def returnCorrectCountsTest() {
     val (ds, fs) = initializeDataStore("testcount")
 
     val gf = JTSFactoryFinder.getGeometryFactory
@@ -162,7 +169,6 @@ class DynamoDBDataStoreIT {
 object DynamoDBDataStoreIT {
 
   def getNewDynamoDB: DynamoDB = {
-    println("BEEEEEEEEEEEEEEEEEAAAAAAAAAAAAAR")
     val d = new AmazonDynamoDBClient(new BasicAWSCredentials("", ""))
     d.setEndpoint(s"http://localhost:${System.getProperty("dynamodb.port")}")
     new DynamoDB(d)

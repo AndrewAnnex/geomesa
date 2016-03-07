@@ -33,15 +33,6 @@
                 <version>${aws-sdk.version}</version>
                 <scope>provided</scope>
             </dependency>
-
-            <!-- Test Dependencies-->
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>DynamoDBLocal</artifactId>
-                <version>${aws-cloudlocal.version}</version>
-                <scope>test</scope>
-            </dependency>
-
         </dependencies>
     </dependencyManagement>
 
