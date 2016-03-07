@@ -35,10 +35,11 @@
         <module>geomesa-process</module>
         <module>geomesa-stream</module>
         <module>geomesa-z3</module>
+        <module>geomesa-blobstore</module>
         <module>geomesa-accumulo</module>
         <module>geomesa-hbase</module>
-        <module>geomesa-blobstore</module>
         <module>geomesa-cassandra</module>
+        <module>geomesa-dynamodb</module>
         <module>geomesa-metrics</module>
         <module>docs</module>
     </modules>
