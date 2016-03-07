@@ -93,6 +93,7 @@
                             <portNames>
                                 <portName>dynamodblocal.port</portName>
                             </portNames>
+                            <randomPort>true</randomPort>
                         </configuration>
                     </execution>
                 </executions>
@@ -139,6 +140,7 @@
                         <phase>integration-test</phase>
                         <goals>
                             <goal>integration-test</goal>
+                            <goal>verify</goal>
                         </goals>
                     </execution>
                 </executions>
