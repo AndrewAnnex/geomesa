@@ -11,24 +11,21 @@ package org.locationtech.geomesa.cassandra.data
 import java.lang
 
 import com.datastax.driver.core._
-import com.vividsolutions.jts.geom.Envelope
-import org.geotools.data.simple.DelegateSimpleFeatureReader
 import org.geotools.data.store._
 import org.geotools.data.{FeatureWriter => FW, _}
-import org.geotools.feature.collection.DelegateSimpleFeatureIterator
 import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.geotools.filter.visitor.ExtractBoundsFilterVisitor
 import org.geotools.geometry.jts.ReferencedEnvelope
-import org.geotools.referencing.crs.DefaultGeographicCRS
-import org.joda.time.{DateTime, Interval}
+import org.joda.time.Interval
 import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
-import org.locationtech.geomesa.filter.FilterHelper
+import org.locationtech.sfcurve.IndexRange
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.GenTraversable
 import scala.collection.JavaConversions._
 
 class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(entry, Query.ALL) with DynamoGeoQuery {
+
+  override protected[this] val primaryKey = CassandraPrimaryKey
 
   private lazy val contentState = entry.getState(getTransaction).asInstanceOf[CassandraContentState]
 
@@ -61,18 +58,10 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
 
 
   override def getReaderInternal(query: Query): FeatureReader[SimpleFeatureType, SimpleFeature] = {
-    val iter =
-      if(query.equals(Query.ALL) || FilterHelper.isFilterWholeWorld(query.getFilter)) {
-        getAllFeatures
-      } else {
-        val plans    = planQuery(query)
-        val features = executeGeoTimeQuery(query, plans)
-        features
-      }
-    new DelegateSimpleFeatureReader(contentState.sft, new DelegateSimpleFeatureIterator(iter))
+    getReaderInternalDynamo(query, contentState)
   }
 
-  def executeGeoTimeQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Iterator[SimpleFeature] = {
+  override def executeGeoTimeQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): GenTraversable[SimpleFeature] = {
     val features = contentState.builderPool.withResource { builder =>
       val futures = plans.map { case HashAndRangeQueryPlan(r, l, u, contained) =>
         val q = contentState.GEO_TIME_QUERY.bind(r: Integer, l: lang.Long, u: lang.Long)
@@ -82,25 +71,23 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
         postProcessResults(query, builder, contains, fut)
       }
     }
-    features.toIterator
+    features
   }
 
   override def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {
     import org.locationtech.geomesa.filter._
     import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
-    val origBounds = query.getFilter.accept(ExtractBoundsFilterVisitor.BOUNDS_VISITOR, DefaultGeographicCRS.WGS84).asInstanceOf[Envelope]
     // TODO: currently we assume that the query has a dtg between predicate and a bbox
-    val re = WHOLE_WORLD.intersection(new ReferencedEnvelope(origBounds, DefaultGeographicCRS.WGS84))
-    val (lx, ly, ux, uy) = (re.getMinX, re.getMinY, re.getMaxX, re.getMaxY)
+    val (lx, ly, ux, uy) = planQuerySpatialBounds(query)
     val (dtgFilters, _) = partitionPrimaryTemporals(decomposeAnd(query.getFilter), contentState.sft)
     val interval = FilterHelper.extractInterval(dtgFilters, contentState.sft.getDtgField)
-    val startWeek = CassandraPrimaryKey.epochWeeks(interval.getStart)
-    val sew = startWeek.getWeeks
-    val endWeek = CassandraPrimaryKey.epochWeeks(interval.getEnd)
-    val eew = endWeek.getWeeks
+    val startWeeks: Int = CassandraPrimaryKey.epochWeeks(interval.getStart).getWeeks
+    val endWeeks:   Int = CassandraPrimaryKey.epochWeeks(interval.getEnd).getWeeks
 
-    val rows = (sew to eew).map { dt => getRowKeys(lx, ly, ux, uy, interval, sew, eew, dt) }
+    val zRanges = CassandraPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy).toList
+
+    val rows = (startWeeks to endWeeks).map { dt => getRowKeys(zRanges, interval, startWeeks, endWeeks, dt) }
 
     val plans =
       rows.flatMap { case ((s, e), rowRanges) =>
@@ -118,12 +105,11 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
     iter
   }
 
-  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
+  override def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
     rowRanges.flatMap { r =>
       val CassandraPrimaryKey.Key(_, _, _, _, z) = CassandraPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = CassandraPrimaryKey.SFC2D.bound(z)
-      val z3ranges =
-        org.locationtech.geomesa.cassandra.data.CassandraPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e))
+      val z3ranges = CassandraPrimaryKey.SFC3D.ranges((minx, maxx), (miny, maxy), (s, e))
 
       z3ranges.map { ir =>
         val (l, u, contains) = ir.tuple
@@ -132,28 +118,8 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
     }
   }
 
-  def getRowKeys(lx: Double, ly: Double, ux: Double, uy: Double, interval: Interval, sew: Int, eew: Int, dt: Int): ((Int, Int), Seq[Int]) = {
-    val dtshift = dt << 16
-    val dtg = new DateTime(0).plusWeeks(dt)
-
-    val seconds =
-      if (dt != sew && dt != eew) {
-        (0, CassandraPrimaryKey.ONE_WEEK_IN_SECONDS)
-      } else {
-        val starts =
-          if (dt == sew) CassandraPrimaryKey.secondsInCurrentWeek(interval.getStart)
-          else 0
-        val ends =
-          if (dt == eew) CassandraPrimaryKey.secondsInCurrentWeek(interval.getEnd)
-          else CassandraPrimaryKey.ONE_WEEK_IN_SECONDS
-        (starts, ends)
-      }
-    val zranges = org.locationtech.geomesa.cassandra.data.CassandraPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy)
-    val shiftedRanges = zranges.flatMap { ir =>
-      val (l, u, _) = ir.tuple
-      (l to u).map { i => (dtshift + i).toInt }
-    }
-    (seconds, shiftedRanges)
+  def getRowKeys(zRanges: Seq[IndexRange], interval: Interval, sew: Int, eew: Int, dt: Int): ((Int, Int), Seq[Int]) = {
+    getRowKeysDynamo(zRanges, interval, sew, eew, dt)
   }
 
   def getAllFeatures: Iterator[SimpleFeature] = {

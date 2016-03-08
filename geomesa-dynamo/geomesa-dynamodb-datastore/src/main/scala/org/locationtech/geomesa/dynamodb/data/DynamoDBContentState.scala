@@ -14,11 +14,12 @@ import com.amazonaws.services.dynamodbv2.model.Select
 import com.google.common.primitives.{Ints, Longs}
 import org.geotools.data.store.{ContentEntry, ContentState}
 import org.geotools.feature.simple.SimpleFeatureBuilder
+import org.locationtech.geomesa.dynamo.core.DynamoContentState
 import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.simple.SimpleFeatureType
 
-class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: Table) extends ContentState(entry) {
+class DynamoDBContentState(entry: ContentEntry, catalogTable: Table, sftTable: Table) extends ContentState(entry) with DynamoContentState {
 
   val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalogTable)
   val table: Table = sftTable

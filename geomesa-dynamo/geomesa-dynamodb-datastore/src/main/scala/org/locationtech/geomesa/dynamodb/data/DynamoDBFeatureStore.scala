@@ -9,17 +9,11 @@
 package org.locationtech.geomesa.dynamodb.data
 
 import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, QueryOutcome, Table}
-import com.vividsolutions.jts.geom.Envelope
-import org.geotools.data.simple.DelegateSimpleFeatureReader
 import org.geotools.data.store.{ContentEntry, ContentFeatureStore}
 import org.geotools.data.{FeatureReader, FeatureWriter, Query}
-import org.geotools.feature.collection.DelegateSimpleFeatureIterator
-import org.geotools.filter.visitor.ExtractBoundsFilterVisitor
 import org.geotools.geometry.jts.ReferencedEnvelope
-import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.Interval
 import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
-import org.locationtech.geomesa.filter._
 import org.locationtech.sfcurve.IndexRange
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -30,6 +24,8 @@ class DynamoDBFeatureStore(entry: ContentEntry,
                            sft: SimpleFeatureType,
                            table: Table)
   extends ContentFeatureStore(entry, Query.ALL) with DynamoGeoQuery {
+
+  override protected[this] val primaryKey = DynamoDBPrimaryKey
 
   private lazy val contentState: DynamoDBContentState = entry.getState(getTransaction).asInstanceOf[DynamoDBContentState]
 
@@ -43,16 +39,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   override def getCountInternal(query: Query): Int = getCountInternalDynamo(query)
 
   override def getReaderInternal(query: Query): FeatureReader[SimpleFeatureType, SimpleFeature] = {
-    val (spatial, other) = partitionPrimarySpatials(query.getFilter, contentState.sft)
-
-    val iter: Iterator[SimpleFeature] =
-      if(query.equals(Query.ALL) || spatial.exists(FilterHelper.isFilterWholeWorld)) {
-        getAllFeatures(other)
-      } else {
-        val plans = planQuery(query)
-        executeGeoTimeQuery(query, plans).toIterator
-      }
-    new DelegateSimpleFeatureReader(contentState.sft, new DelegateSimpleFeatureIterator(iter))
+    getReaderInternalDynamo(query, contentState)
   }
 
   override def getWriterInternal(query: Query, flags: Int): FeatureWriter[SimpleFeatureType, SimpleFeature] = {
@@ -64,14 +51,11 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     import org.locationtech.geomesa.filter._
     import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
-    val origBounds = query.getFilter.accept(ExtractBoundsFilterVisitor.BOUNDS_VISITOR, DefaultGeographicCRS.WGS84).asInstanceOf[Envelope]
-    val re = WHOLE_WORLD.intersection(new ReferencedEnvelope(origBounds, DefaultGeographicCRS.WGS84))
-    val (lx, ly, ux, uy) = (re.getMinX, re.getMinY, re.getMaxX, re.getMaxY)
+    val (lx, ly, ux, uy) = planQuerySpatialBounds(query)
     val (dtgFilters, _) = partitionPrimaryTemporals(decomposeAnd(query.getFilter), contentState.sft)
     val interval = FilterHelper.extractInterval(dtgFilters, contentState.sft.getDtgField)
-
-    val startWeeks = DynamoDBPrimaryKey.epochWeeks(interval.getStart).getWeeks
-    val endWeeks   = DynamoDBPrimaryKey.epochWeeks(interval.getEnd).getWeeks
+    val startWeeks: Int = DynamoDBPrimaryKey.epochWeeks(interval.getStart).getWeeks
+    val endWeeks:   Int = DynamoDBPrimaryKey.epochWeeks(interval.getEnd).getWeeks
 
     val zRanges = DynamoDBPrimaryKey.SFC2D.toRanges(lx, ly, ux, uy).toList
 
@@ -85,25 +69,10 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   }
 
   def getRowKeys(zRanges: Seq[IndexRange], interval: Interval, sew: Int, eew: Int, dt: Int): ((Int, Int), Seq[Int]) = {
-    val dtshift = dt << 16
-    val seconds: (Int, Int) =
-      if (dt != sew && dt != eew) {
-        (0, DynamoDBPrimaryKey.ONE_WEEK_IN_SECONDS)
-      } else {
-        val starts = if (dt == sew) DynamoDBPrimaryKey.secondsInCurrentWeek(interval.getStart) else 0
-        val ends   = if (dt == eew) DynamoDBPrimaryKey.secondsInCurrentWeek(interval.getEnd)   else DynamoDBPrimaryKey.ONE_WEEK_IN_SECONDS
-        (starts, ends)
-      }
-
-    val shiftedRanges = zRanges.flatMap { ir =>
-      val (l, u, _) = ir.tuple
-      (l to u).map { i => (dtshift + i).toInt }
-    }
-
-    (seconds, shiftedRanges)
+    getRowKeysDynamo(zRanges, interval, sew, eew, dt)
   }
 
-  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
+  override def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
     rowRanges.map { r =>
       val DynamoDBPrimaryKey.Key(_, _, _, _, z) = DynamoDBPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = DynamoDBPrimaryKey.SFC2D.bound(z)
