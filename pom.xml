@@ -39,7 +39,7 @@
         <module>geomesa-accumulo</module>
         <module>geomesa-hbase</module>
         <module>geomesa-cassandra</module>
-        <module>geomesa-dynamodb</module>
+        <module>geomesa-dynamo</module>
         <module>geomesa-metrics</module>
         <module>docs</module>
     </modules>
