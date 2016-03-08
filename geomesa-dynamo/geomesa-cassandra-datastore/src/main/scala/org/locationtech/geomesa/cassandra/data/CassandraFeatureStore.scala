@@ -21,12 +21,14 @@ import org.geotools.filter.visitor.ExtractBoundsFilterVisitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.{DateTime, Interval}
+import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
 import org.locationtech.geomesa.filter.FilterHelper
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
+import scala.collection.GenTraversable
 import scala.collection.JavaConversions._
 
-class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(entry, Query.ALL) {
+class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(entry, Query.ALL) with DynamoGeoQuery {
 
   private lazy val contentState = entry.getState(getTransaction).asInstanceOf[CassandraContentState]
 
@@ -37,25 +39,18 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
 
   override def buildFeatureType(): SimpleFeatureType = contentState.sft
 
-  override def getBoundsInternal(query: Query): ReferencedEnvelope = new ReferencedEnvelope(-180.0, 180.0, -90.0, 90.0, DefaultGeographicCRS.WGS84)
+  override def getBoundsInternal(query: Query): ReferencedEnvelope = WHOLE_WORLD
 
-  override def getCountInternal(query: Query): Int = {
-    // TODO: might overflow
-    if(query.equals(Query.ALL) || FilterHelper.isFilterWholeWorld(query.getFilter)) {
-      contentState.session.execute(contentState.ALL_COUNT_QUERY.bind()).iterator().next().getLong(0).toInt
-    } else {
-      val plans = planQuery(query)
-      executeGeoTimeCountQuery(query, plans).toInt
-    }
-  }
+  // TODO: might overflow
+  override def getCountOfAllDynamo: Int = contentState.session.execute(contentState.ALL_COUNT_QUERY.bind()).iterator().next().getLong(0).toInt
 
-  case class RowAndColumnQueryPlan(row: Int, lz3: Long, uz3: Long, contained: Boolean)
+  override def getCountInternal(query: Query): Int = getCountInternalDynamo(query)
 
-  def executeGeoTimeCountQuery(query: Query, plans: Seq[RowAndColumnQueryPlan]) = {
+  override def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Long = {
     // TODO: currently overestimates the count in order to increase performance
     // Fix overestimation by pushing geo etc predicates down into the database
     val features = contentState.builderPool.withResource { builder =>
-      val futures = plans.map { case RowAndColumnQueryPlan(r, l, u, contained) =>
+      val futures = plans.map { case HashAndRangeQueryPlan(r, l, u, contained) =>
         val q = contentState.GEO_TIME_COUNT_QUERY.bind(r: Integer, l: lang.Long, u: lang.Long)
         contentState.session.executeAsync(q)
       }
@@ -72,14 +67,14 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
       } else {
         val plans    = planQuery(query)
         val features = executeGeoTimeQuery(query, plans)
-        features.iterator
+        features
       }
     new DelegateSimpleFeatureReader(contentState.sft, new DelegateSimpleFeatureIterator(iter))
   }
 
-  def executeGeoTimeQuery(query: Query, plans: Seq[RowAndColumnQueryPlan]): Seq[SimpleFeature] = {
+  def executeGeoTimeQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Iterator[SimpleFeature] = {
     val features = contentState.builderPool.withResource { builder =>
-      val futures = plans.map { case RowAndColumnQueryPlan(r, l, u, contained) =>
+      val futures = plans.map { case HashAndRangeQueryPlan(r, l, u, contained) =>
         val q = contentState.GEO_TIME_QUERY.bind(r: Integer, l: lang.Long, u: lang.Long)
         (contained, contentState.session.executeAsync(q))
       }
@@ -87,11 +82,10 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
         postProcessResults(query, builder, contains, fut)
       }
     }
-    features
+    features.toIterator
   }
 
-  val WHOLE_WORLD = new ReferencedEnvelope(-180.0, 180.0, -90.0, 90.0, DefaultGeographicCRS.WGS84)
-  def planQuery(query: Query) = {
+  override def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {
     import org.locationtech.geomesa.filter._
     import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
@@ -124,7 +118,7 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
     iter
   }
 
-  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[RowAndColumnQueryPlan] = {
+  def planQueryForContiguousRowRange(s: Int, e: Int, rowRanges: Seq[Int]): Seq[HashAndRangeQueryPlan] = {
     rowRanges.flatMap { r =>
       val CassandraPrimaryKey.Key(_, _, _, _, z) = CassandraPrimaryKey.unapply(r)
       val (minx, miny, maxx, maxy) = CassandraPrimaryKey.SFC2D.bound(z)
@@ -133,7 +127,7 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
 
       z3ranges.map { ir =>
         val (l, u, contains) = ir.tuple
-        RowAndColumnQueryPlan(r, l, u, contains)
+        HashAndRangeQueryPlan(r, l, u, contains)
       }
     }
   }
@@ -162,7 +156,7 @@ class CassandraFeatureStore(entry: ContentEntry) extends ContentFeatureStore(ent
     (seconds, shiftedRanges)
   }
 
-  def getAllFeatures = {
+  def getAllFeatures: Iterator[SimpleFeature] = {
     contentState.builderPool.withResource { builder =>
       contentState.session.execute(contentState.ALL_QUERY.bind()).iterator().map { r => convertRowToSF(r, builder) }
     }

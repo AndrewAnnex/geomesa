@@ -18,10 +18,10 @@ import org.geotools.filter.visitor.ExtractBoundsFilterVisitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.joda.time.Interval
+import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
 import org.locationtech.geomesa.filter._
 import org.locationtech.sfcurve.IndexRange
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
-import org.opengis.filter.Filter
 
 import scala.collection.GenTraversable
 import scala.collection.JavaConversions._
@@ -29,11 +29,7 @@ import scala.collection.JavaConversions._
 class DynamoDBFeatureStore(entry: ContentEntry,
                            sft: SimpleFeatureType,
                            table: Table)
-  extends ContentFeatureStore(entry, Query.ALL) {
-
-  case class HashAndRangeQueryPlan(row: Int, lz3: Long, uz3: Long, contained: Boolean)
-
-  val WHOLE_WORLD = new ReferencedEnvelope(-180.0, 180.0, -90.0, 90.0, DefaultGeographicCRS.WGS84)
+  extends ContentFeatureStore(entry, Query.ALL) with DynamoGeoQuery {
 
   private lazy val contentState: DynamoDBContentState = entry.getState(getTransaction).asInstanceOf[DynamoDBContentState]
 
@@ -41,15 +37,10 @@ class DynamoDBFeatureStore(entry: ContentEntry,
 
   override def getBoundsInternal(query: Query): ReferencedEnvelope = WHOLE_WORLD
 
-  override def getCountInternal(query: Query): Int = {
-    // TODO: getItemCount returns a Long, may need to do something safer
-    if(query.equals(Query.ALL) || FilterHelper.isFilterWholeWorld(query.getFilter)) {
-      table.getDescription.getItemCount.toInt
-    } else {
-      val plans = planQuery(query)
-      executeGeoTimeCountQuery(query, plans)
-    }
-  }
+  // TODO: getItemCount returns a Long, may need to do something safer
+  override def getCountOfAllDynamo: Int = table.getDescription.getItemCount.toInt
+
+  override def getCountInternal(query: Query): Int = getCountInternalDynamo(query)
 
   override def getReaderInternal(query: Query): FeatureReader[SimpleFeatureType, SimpleFeature] = {
     val (spatial, other) = partitionPrimarySpatials(query.getFilter, contentState.sft)
@@ -58,9 +49,8 @@ class DynamoDBFeatureStore(entry: ContentEntry,
       if(query.equals(Query.ALL) || spatial.exists(FilterHelper.isFilterWholeWorld)) {
         getAllFeatures(other)
       } else {
-        val plans    = planQuery(query)
-        val features = executeGeoTimeQuery(query, plans).toIterator
-        features
+        val plans = planQuery(query)
+        executeGeoTimeQuery(query, plans).toIterator
       }
     new DelegateSimpleFeatureReader(contentState.sft, new DelegateSimpleFeatureIterator(iter))
   }
@@ -70,15 +60,7 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     else                                   new DynamoDBUpdatingFeatureWriter(contentState.sft, contentState.table)
   }
 
-  def getAllFeatures(filter: Seq[Filter]): Iterator[SimpleFeature] = {
-    val iter = contentState.table.scan(contentState.ALL_QUERY).iterator()
-    iter.flatMap { i =>
-      val tempSF = convertItemToSF(i)
-      if (filter.forall(_.evaluate(tempSF))) Some(tempSF) else None
-    }
-  }
-
-  def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {
+  override def planQuery(query: Query): GenTraversable[HashAndRangeQueryPlan] = {
     import org.locationtech.geomesa.filter._
     import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
@@ -143,14 +125,14 @@ class DynamoDBFeatureStore(entry: ContentEntry,
     }
   }
 
-  def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Int = {
+  override def executeGeoTimeCountQuery(query: Query, plans: GenTraversable[HashAndRangeQueryPlan]): Long = {
     if (plans.size > 10) {
-      -1
+      -1L
     } else {
       plans.map{ case HashAndRangeQueryPlan(r, l, u, c) =>
         val q = contentState.geoTimeCountQuery(r, l, u)
         val res = contentState.table.query(q)
-        res.getTotalCount}.sum
+        res.getTotalCount}.sum.toLong
       }
   }
 
@@ -167,6 +149,8 @@ class DynamoDBFeatureStore(entry: ContentEntry,
   private def convertItemToSF(i: Item): SimpleFeature = {
     contentState.serializer.deserialize(i.getBinary(DynamoDBDataStore.serId))
   }
+
+  override def getAllFeatures: Iterator[SimpleFeature] = contentState.table.scan(contentState.ALL_QUERY).iterator().map(convertItemToSF)
 
 }
 
