@@ -2047,6 +2047,9 @@
                             <include>src/test/java/**</include>
                             <include>src/test/scala/**</include>
                         </includes>
+                        <excludes>
+                            <exclude>**/*.txt</exclude>
+                        </excludes>
                     </configuration>
                 </plugin>
             </plugins>
