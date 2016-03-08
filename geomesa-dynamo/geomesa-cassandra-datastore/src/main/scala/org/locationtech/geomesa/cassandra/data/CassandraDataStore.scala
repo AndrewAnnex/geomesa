@@ -20,11 +20,9 @@ import com.vividsolutions.jts.geom.{Geometry, Point}
 import org.geotools.data.store._
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder
 import org.geotools.feature.{AttributeTypeBuilder, NameImpl}
-import org.joda.time.{DateTime, Seconds, Weeks}
-import org.locationtech.geomesa.curve.Z3SFC
+import org.locationtech.geomesa.dynamo.core.{SchemaValidation, DynamoPrimaryKey}
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType
 import org.locationtech.geomesa.utils.text.WKBUtils
-import org.locationtech.sfcurve.zorder.ZCurve2D
 import org.opengis.feature.`type`.{AttributeDescriptor, Name}
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -89,23 +87,18 @@ object CassandraDataStore {
   }
 }
 
-class CassandraDataStore(session: Session, keyspaceMetadata: KeyspaceMetadata, ns: URI) extends ContentDataStore {
+class CassandraDataStore(session: Session, keyspaceMetadata: KeyspaceMetadata, ns: URI) extends
+  ContentDataStore with SchemaValidation {
   import scala.collection.JavaConversions._
 
   override def createFeatureSource(contentEntry: ContentEntry): ContentFeatureSource =
     new CassandraFeatureStore(contentEntry)
 
   override def createSchema(featureType: SimpleFeatureType): Unit = {
-    // validate dtg
-    featureType.getAttributeDescriptors
-      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[java.util.Date]) }
-      .getOrElse(throw new IllegalArgumentException("Could not find a dtg field"))
+    validatingCreateSchema(featureType, createSchemaInternal)
+  }
 
-    // validate geometry
-    featureType.getAttributeDescriptors
-      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[Point]) }
-      .getOrElse(throw new IllegalArgumentException("Could not find a valid point geometry"))
-
+  def createSchemaInternal(featureType: SimpleFeatureType): Unit = {
     val cols =
       featureType.getAttributeDescriptors.map { ad =>
         s"${ad.getLocalName}  ${CassandraDataStore.typeMap(ad.getType.getBinding).getName.toString}"
@@ -115,45 +108,16 @@ class CassandraDataStore(session: Session, keyspaceMetadata: KeyspaceMetadata, n
     session.execute(stmt)
   }
 
+  override def createTypeNames(): util.List[Name] =
+    keyspaceMetadata.getTables.map { t => new NameImpl(ns.toString, t.getName) }.toList
 
   override def createContentState(entry: ContentEntry): ContentState =
     new CassandraContentState(entry, session, keyspaceMetadata.getTable(entry.getTypeName))
 
-  override def createTypeNames(): util.List[Name] =
-    keyspaceMetadata.getTables.map { t => new NameImpl(ns.toString, t.getName) }.toList
 
   override def dispose(): Unit = if (session != null) session.close()
 }
 
-object CassandraPrimaryKey {
-
-  case class Key(idx: Int, x: Double, y: Double, dk: Int, z: Int)
-
-  def unapply(idx: Int): Key = {
-    val dk = idx >> 16
-    val z = idx & 0x000000ff
-    val (x, y) = SFC2D.toPoint(z)
-    Key(idx, x, y, dk, z)
-  }
-
-  def apply(dtg: DateTime, x: Double, y: Double): Key = {
-    val dk = epochWeeks(dtg).getWeeks << 16
-    val z = SFC2D.toIndex(x, y).toInt
-    val (rx, ry) = SFC2D.toPoint(z)
-    val idx = dk + z
-    Key(idx, rx, ry, dk, z)
-  }
-
-  val EPOCH = new DateTime(0)
-
-  def epochWeeks(dtg: DateTime) = Weeks.weeksBetween(EPOCH, new DateTime(dtg))
-
-  val ONE_WEEK_IN_SECONDS = Weeks.ONE.toStandardSeconds.getSeconds
-  def secondsInCurrentWeek(dtg: DateTime) =
-    Seconds.secondsBetween(EPOCH, dtg).getSeconds - epochWeeks(dtg).getWeeks*ONE_WEEK_IN_SECONDS
-
-  val SFC2D = new ZCurve2D(math.pow(2,5).toInt)
-  val SFC3D = new Z3SFC
-}
+object CassandraPrimaryKey extends DynamoPrimaryKey
 
 

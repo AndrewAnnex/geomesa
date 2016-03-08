@@ -12,6 +12,7 @@ import java.awt.RenderingHints.Key
 import java.io.Serializable
 import java.lang.{Long => JLong}
 import java.util
+import java.util.Collections
 
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import org.geotools.data.DataAccessFactory.Param
@@ -40,7 +41,7 @@ class DynamoDBDataStoreFactory extends DataStoreFactorySpi {
 
   override def isAvailable: Boolean = true
 
-  override def getImplementationHints: util.Map[Key, _] = null
+  override def getImplementationHints: util.Map[Key, _] = Collections.emptyMap()
 }
 
 object DynamoDBDataStoreFactory {

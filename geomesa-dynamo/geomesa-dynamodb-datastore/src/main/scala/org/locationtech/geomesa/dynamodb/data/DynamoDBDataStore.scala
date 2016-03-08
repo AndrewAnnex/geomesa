@@ -13,22 +13,20 @@ import java.util
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, Table}
 import com.amazonaws.services.dynamodbv2.model._
 import com.typesafe.scalalogging.LazyLogging
-import com.vividsolutions.jts.geom.Point
 import org.geotools.data.Transaction
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource, ContentState}
 import org.geotools.feature.NameImpl
-import org.joda.time.{DateTime, Seconds, Weeks}
-import org.locationtech.geomesa.curve.Z3SFC
+import org.locationtech.geomesa.dynamo.core.{DynamoPrimaryKey, SchemaValidation}
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-import org.locationtech.sfcurve.zorder.ZCurve2D
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.collection.JavaConversions._
 import scala.util.control.NonFatal
 
-class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: ProvisionedThroughput) extends ContentDataStore with SchemaValidation with LazyLogging {
+class DynamoDBDataStore(val catalog: String, dynamoDB: DynamoDB, catalogPt: ProvisionedThroughput)
+  extends ContentDataStore with SchemaValidation with LazyLogging {
   import DynamoDBDataStore._
 
   private val CATALOG_TABLE = catalog
@@ -66,7 +64,6 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
   }
 
   override def createTypeNames(): util.List[Name] = {
-    // read types from catalog
     catalogTable.scan().iterator().map { i => new NameImpl(i.getString(catalogKeyHash)) }.toList
   }
 
@@ -76,10 +73,6 @@ class DynamoDBDataStore(catalog: String, dynamoDB: DynamoDB, catalogPt: Provisio
   }
 
   override def dispose(): Unit = if (dynamoDB != null) dynamoDB.shutdown()
-
-  private def createDDMMetaDataItem(name: String, featureType: SimpleFeatureType): Item = {
-    new Item().withPrimaryKey(catalogKeyHash, name).withString(catalogSftAttributeName, SimpleFeatureTypes.encodeType(featureType))
-  }
 
   def updateProvisionedThroughput(name: String, pt: ProvisionedThroughput): Unit = {
     val tableName = makeTableName(catalog, name)
@@ -129,7 +122,7 @@ object DynamoDBDataStore {
   }
 
   private def getOrCreateCatalogTable(dynamoDB: DynamoDB, table: String, rcus: Long = 1L, wcus: Long = 1L) = {
-    val tables = dynamoDB.listTables().iterator().toList
+    val tables = dynamoDB.listTables().iterator()
     val ret = tables
       .find(_.getTableName == table)
       .getOrElse(
@@ -144,6 +137,10 @@ object DynamoDBDataStore {
     ret
   }
 
+  private def createDDMMetaDataItem(name: String, featureType: SimpleFeatureType): Item = {
+    new Item().withPrimaryKey(catalogKeyHash, name).withString(catalogSftAttributeName, SimpleFeatureTypes.encodeType(featureType))
+  }
+
   def apply(catalog: String, dynamoDB: DynamoDB, rcus: Long, wcus: Long): DynamoDBDataStore = {
     val pt = new ProvisionedThroughput(rcus, wcus)
     new DynamoDBDataStore(catalog, dynamoDB, pt)
@@ -151,52 +148,4 @@ object DynamoDBDataStore {
 
 }
 
-trait SchemaValidation {
-
-  protected def validatingCreateSchema(featureType: SimpleFeatureType, cs: (SimpleFeatureType) => Unit): Unit = {
-    // validate dtg
-    featureType.getAttributeDescriptors
-      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[java.util.Date]) }
-      .getOrElse(throw new IllegalArgumentException("Could not find a dtg field"))
-
-    // validate geometry
-    featureType.getAttributeDescriptors
-      .find { ad => ad.getType.getBinding.isAssignableFrom(classOf[Point]) }
-      .getOrElse(throw new IllegalArgumentException("Could not find a valid point geometry"))
-
-    cs(featureType)
-  }
-
-}
-
-object DynamoDBPrimaryKey {
-
-  val SFC3D = new Z3SFC
-  val SFC2D = new ZCurve2D(math.pow(2,5).toInt)
-
-  val EPOCH = new DateTime(0)
-  val ONE_WEEK_IN_SECONDS = Weeks.ONE.toStandardSeconds.getSeconds
-
-  def epochWeeks(dtg: DateTime): Weeks = Weeks.weeksBetween(EPOCH, new DateTime(dtg))
-
-  def secondsInCurrentWeek(dtg: DateTime): Int =
-    Seconds.secondsBetween(EPOCH, dtg).getSeconds - epochWeeks(dtg).getWeeks*ONE_WEEK_IN_SECONDS
-
-  case class Key(idx: Int, x: Double, y: Double, dk: Int, z: Int)
-
-  def unapply(idx: Int): Key = {
-    val dk = idx >> 16
-    val z = idx & 0x000000ff
-    val (x, y) = SFC2D.toPoint(z)
-    Key(idx, x, y, dk, z)
-  }
-
-  def apply(dtg: DateTime, x: Double, y: Double): Key = {
-    val dk = epochWeeks(dtg).getWeeks << 16
-    val z = SFC2D.toIndex(x, y).toInt
-    val (rx, ry) = SFC2D.toPoint(z)
-    val idx = dk + z
-    Key(idx, rx, ry, dk, z)
-  }
-
-}
+object DynamoDBPrimaryKey extends DynamoPrimaryKey

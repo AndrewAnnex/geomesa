@@ -8,17 +8,19 @@
 
 package org.locationtech.geomesa.cassandra.data
 
+import java.awt.RenderingHints.Key
 import java.io.Serializable
 import java.net.URI
 import java.util
+import java.util.Collections
 
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{DCAwareRoundRobinPolicy, DefaultRetryPolicy, TokenAwarePolicy}
 import org.geotools.data.DataAccessFactory.Param
-import org.geotools.data.{AbstractDataStoreFactory, DataStore, Parameter}
+import org.geotools.data.{DataStore, DataStoreFactorySpi, Parameter}
 import org.geotools.util.KVP
 
-class CassandraDataStoreFactory extends AbstractDataStoreFactory {
+class CassandraDataStoreFactory extends DataStoreFactorySpi {
   import CassandraDataStoreParams._
 
   override def createDataStore(map: util.Map[String, Serializable]): DataStore = {
@@ -37,13 +39,19 @@ class CassandraDataStoreFactory extends AbstractDataStoreFactory {
     new CassandraDataStore(session, cluster.getMetadata.getKeyspace(ks), ns)
   }
 
-  override def createNewDataStore(map: util.Map[String, Serializable]): DataStore = ???
+  override def createNewDataStore(map: util.Map[String, Serializable]): DataStore = createDataStore(map)
 
   override def getDisplayName: String = "Cassandra (GeoMesa)"
 
   override def getDescription: String = "GeoMesa Cassandra Data Store"
 
-  override def getParametersInfo: Array[Param] = Array(CONTACT_POINT, KEYSPACE, NAMESPACE)
+  override def getParametersInfo: Array[Param] = CassandraDataStoreParams.PARAMS
+
+  override def isAvailable: Boolean = true
+
+  override def canProcess(params: util.Map[String, Serializable]): Boolean = canProcessCassandra(params)
+
+  override def getImplementationHints: util.Map[Key, _] = Collections.emptyMap()
 }
 
 object CassandraDataStoreParams {
@@ -52,4 +60,9 @@ object CassandraDataStoreParams {
   val KEYSPACE      = new Param("geomesa.cassandra.keyspace"       , classOf[String], "Cassandra Keyspace", true)
   val NAMESPACE     = new Param("namespace", classOf[URI], "uri to a the namespace", false, null, new KVP(Parameter.LEVEL, "advanced"))
 
+  val PARAMS  = Array(CONTACT_POINT, KEYSPACE, NAMESPACE)
+
+  def canProcessCassandra(params: util.Map[String, Serializable]): Boolean = {
+    params.containsKey(CONTACT_POINT.key) && params.containsKey(KEYSPACE.key)
+  }
 }

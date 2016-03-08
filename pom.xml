@@ -38,7 +38,6 @@
         <module>geomesa-blobstore</module>
         <module>geomesa-accumulo</module>
         <module>geomesa-hbase</module>
-        <module>geomesa-cassandra</module>
         <module>geomesa-dynamo</module>
         <module>geomesa-metrics</module>
         <module>docs</module>
@@ -1985,6 +1984,10 @@
                         <includes>
                             <include>**/*Test.java</include>
                         </includes>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                            <exclude>**/*IT.scala</exclude>
+                        </excludes>
                         <argLine>${maven.test.jvmargs}</argLine>
                     </configuration>
                 </plugin>

@@ -64,6 +64,8 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
     }
   }
 
+  override def hasNext: Boolean = true
+
   override def next(): SimpleFeature = {
     curFeature = new ScalaSimpleFeature(UUID.randomUUID().toString, sft)
     curFeature
@@ -71,7 +73,9 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
 
   override def remove(): Unit = throw new NotImplementedError("DynamoDB feature writer is append only")
 
-  override def hasNext: Boolean = true
+  override def close(): Unit = {}
+
+  override def getFeatureType: SimpleFeatureType = sft
 
   override def write(): Unit = {
     import org.locationtech.geomesa.utils.geotools.Conversions._
@@ -107,10 +111,6 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
     this.dynamoDBPut(table, item)
     curFeature = null
   }
-
-  override def getFeatureType: SimpleFeatureType = sft
-
-  override def close(): Unit = {}
 
 }
 

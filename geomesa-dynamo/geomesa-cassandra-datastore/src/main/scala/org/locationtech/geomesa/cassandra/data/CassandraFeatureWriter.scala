@@ -8,14 +8,12 @@
 
 package org.locationtech.geomesa.cassandra.data
 
-import java.nio.ByteBuffer
 import java.util.UUID
 
 import com.datastax.driver.core._
 import org.geotools.data.{FeatureWriter => FW}
 import org.joda.time.DateTime
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.utils.text.WKBUtils
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 trait CassandraFeatureWriter extends FW[SimpleFeatureType, SimpleFeature] {
@@ -44,15 +42,17 @@ trait CassandraFeatureWriter extends FW[SimpleFeatureType, SimpleFeature] {
 
   override def remove(): Unit = ???
 
+  override def close(): Unit = {}
+
+  override def getFeatureType: SimpleFeatureType = sft
+
   override def write(): Unit = {
     import org.locationtech.geomesa.utils.geotools.Conversions._
 
     val geom = curFeature.point
-    val geo = ByteBuffer.wrap(WKBUtils.write(geom))
     val x = geom.getX
     val y = geom.getY
     val dtg = new DateTime(curFeature.getAttribute(dtgIdx).asInstanceOf[java.util.Date])
-    val weeks = CassandraPrimaryKey.epochWeeks(dtg)
 
     val secondsInWeek = CassandraPrimaryKey.secondsInCurrentWeek(dtg)
     val pk = CassandraPrimaryKey(dtg, x, y)
@@ -65,9 +65,6 @@ trait CassandraFeatureWriter extends FW[SimpleFeatureType, SimpleFeature] {
     curFeature = null
   }
 
-  override def getFeatureType: SimpleFeatureType = sft
-
-  override def close(): Unit = {}
 }
 
 class AppendFW(val sft: SimpleFeatureType, val session: Session) extends CassandraFeatureWriter {
