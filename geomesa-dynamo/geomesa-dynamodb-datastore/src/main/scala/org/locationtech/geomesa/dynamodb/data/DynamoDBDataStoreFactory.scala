@@ -15,7 +15,6 @@ import java.util
 import java.util.Collections
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.{DataStore, DataStoreFactorySpi}
 
@@ -51,7 +50,7 @@ class DynamoDBDataStoreFactory extends DataStoreFactorySpi {
 
 object DynamoDBDataStoreFactory {
   val CATALOG = new Param("geomesa.dynamodb.catalog", classOf[String], "DynamoDB table name", true)
-  val DYNAMODBCLIENT = new Param("geomesa.dynamodb.client", classOf[DynamoDB], "DynamoDB client instance", true)
+  val DYNAMODBCLIENT = new Param("geomesa.dynamodb.client", classOf[AmazonDynamoDBAsyncClient], "DynamoDB client instance", true)
   val CATALOG_RCUS =
     new Param(
       DynamoDBDataStore.RCU_Key,

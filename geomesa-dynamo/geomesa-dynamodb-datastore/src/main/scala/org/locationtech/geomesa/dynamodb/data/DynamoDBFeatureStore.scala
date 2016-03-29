@@ -8,15 +8,13 @@
 
 package org.locationtech.geomesa.dynamodb.data
 
-import java.util.concurrent.Future
-
 import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, QueryOutcome}
-import com.amazonaws.services.dynamodbv2.model.{QueryRequest, QueryResult}
 import org.geotools.data.store.{ContentEntry, ContentFeatureStore}
 import org.geotools.data.{FeatureReader, FeatureWriter, Query}
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
+import org.locationtech.geomesa.utils.text.WKBUtils
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
@@ -65,23 +63,17 @@ class DynamoDBFeatureStore(ent: ContentEntry)
     contentState.builderPool.withResource { builder =>
       val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
         val qs = contentState.geoTimeQuery(r, l, u)
-        val q: QueryRequest = new QueryRequest().withTableName("")
-        val res = contentState.dynamodbClient.queryAsync(q)
+        val res = contentState.table.query(qs)
         (c, res)
       }
-//      results.flatMap { case (contains, fut) =>
-//        postProcess(query,  builder, contains, fut)
-//      }
       results.flatMap { case (contains, fut) =>
-        postProcess(query, builder, contains, fut.get())
+        postProcess(query, builder, contains, fut)
       }
     }
-
-
   }
 
-  def postProcess(q: Query, builder: SimpleFeatureBuilder, contains: Boolean, fut: Future[QueryResult]): Iterator[SimpleFeature] = {
-    applyFilter(q, contains, fut..get().getItems.map(i => convertItemToSF(i, builder)))
+  def postProcess(q: Query, builder: SimpleFeatureBuilder, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
+    applyFilter(q, contains, fut.view.toIterator.map(i => convertItemToSF(i, builder)))
   }
 
   override def getFeaturesInternal: Iterator[SimpleFeature] = {
@@ -94,9 +86,13 @@ class DynamoDBFeatureStore(ent: ContentEntry)
 
   private def convertItemToSF(i: Item, builder: SimpleFeatureBuilder): SimpleFeature = {
     val fid = i.getString(DynamoDBDataStore.fID)
+    val geom = WKBUtils.read(i.getBinary(contentState.geomField))
     val itemAttrs = i.asMap()
     itemAttrs.remove(DynamoDBDataStore.fID)
-    val attrs = itemAttrs.valuesIterator.toArray
+    itemAttrs.remove(DynamoDBDataStore.geomesaKeyHash)
+    itemAttrs.remove(DynamoDBDataStore.geomesaKeyRange)
+    itemAttrs.remove(contentState.geomField)
+    val attrs = itemAttrs.valuesIterator.toArray ++ Array(geom)
     builder.reset()
     builder.buildFeature(fid, attrs)
   }

@@ -11,8 +11,7 @@ package org.locationtech.geomesa.dynamodb.data
 import java.util.UUID
 
 import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsyncClient}
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data.simple.SimpleFeatureStore
 import org.geotools.data.{DataStore, DataStoreFinder, DataUtilities, Query}
@@ -239,10 +238,10 @@ class DynamoDBDataStoreIT {
 object DynamoDBDataStoreIT {
   val gf = JTSFactoryFinder.getGeometryFactory
 
-  def getNewDynamoDB: DynamoDB = {
+  def getNewDynamoDB: AmazonDynamoDB = {
     val d = new AmazonDynamoDBAsyncClient(new BasicAWSCredentials("", ""))
     d.setEndpoint(s"http://localhost:${System.getProperty("dynamodb.port")}")
-    new DynamoDB(d)
+    d
   }
 
   def createFeatures(sft: SimpleFeatureType) = {

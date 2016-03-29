@@ -21,20 +21,23 @@ import org.opengis.feature.simple.SimpleFeatureType
 
 class DynamoDBContentState(ent: ContentEntry, catalogTable: Table, sftTable: Table, client: AmazonDynamoDBAsyncClient)
   extends ContentState(ent) with DynamoContentState {
+  import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
   val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalogTable)
+  val geomField = sft.getGeomField
+
   val table: Table = sftTable
   val builderPool = ObjectPoolFactory(getBuilder, 10)
   val dynamodbClient = client
 
-  val ALL_QUERY = new ScanSpec().withAttributesToGet(DynamoDBDataStore.serId)
+  val ALL_QUERY = new ScanSpec()
 
   def getCountOfAll: Long = sftTable.getDescription.getItemCount
 
   def geoTimeQuery(pkz: Int, z3min: Long, z3max: Long): QuerySpec = new QuerySpec()
     .withHashKey(DynamoDBDataStore.geomesaKeyHash, Ints.toByteArray(pkz))
     .withRangeKeyCondition(genRangeKey(z3min, z3max))
-    .withAttributesToGet(DynamoDBDataStore.serId)
+
 
   private def genRangeKey(z3min: Long, z3max: Long): RangeKeyCondition = {
     val minZ3 = Longs.toByteArray(z3min)

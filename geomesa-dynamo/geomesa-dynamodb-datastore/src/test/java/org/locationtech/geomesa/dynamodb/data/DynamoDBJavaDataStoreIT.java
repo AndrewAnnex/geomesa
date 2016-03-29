@@ -9,8 +9,8 @@
 package org.locationtech.geomesa.dynamodb.data;
 
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableMap;
@@ -50,10 +50,10 @@ public class DynamoDBJavaDataStoreIT {
         return DataStoreFinder.getDataStore(params);
     }
 
-    public DynamoDB getNewDynamoDB() {
+    public AmazonDynamoDB getNewDynamoDB() {
         AmazonDynamoDBAsyncClient adbc = new AmazonDynamoDBAsyncClient(new BasicAWSCredentials("", ""));
         adbc.setEndpoint(String.format("http://localhost:%s", System.getProperty("dynamodb.port")));
-        return new DynamoDB(adbc);
+        return adbc;
     }
 
 }
