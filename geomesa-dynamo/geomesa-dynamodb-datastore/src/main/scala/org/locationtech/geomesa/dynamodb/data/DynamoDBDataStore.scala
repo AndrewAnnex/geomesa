@@ -11,6 +11,7 @@ package org.locationtech.geomesa.dynamodb.data
 import java.lang.{Long => JLong}
 import java.util
 
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsync, AmazonDynamoDBAsyncClient}
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB, Item, Table}
 import com.amazonaws.services.dynamodbv2.model._
 import com.typesafe.scalalogging.LazyLogging
@@ -24,7 +25,7 @@ import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.collection.JavaConversions._
 
-class DynamoDBDataStore(val catalog: String, dynamoDB: DynamoDB, catalogPt: ProvisionedThroughput)
+class DynamoDBDataStore(val catalog: String, dynamoDB: AmazonDynamoDB, catalogPt: ProvisionedThroughput)
   extends ContentDataStore with SchemaValidation with LazyLogging {
 
   import DynamoDBDataStore._
@@ -76,7 +77,7 @@ class DynamoDBDataStore(val catalog: String, dynamoDB: DynamoDB, catalogPt: Prov
 
   override def createContentState(entry: ContentEntry): ContentState = {
     val sftTable = dynamoDB.getTable(makeSFTTableName(catalog, entry.getName.getURI))
-    new DynamoDBContentState(entry, catalogTable, sftTable)
+    new DynamoDBContentState(entry, catalogTable, sftTable, dynamoDB)
   }
 
   override def dispose(): Unit = if (dynamoDB != null) dynamoDB.shutdown()
@@ -166,6 +167,7 @@ object DynamoDBDataStore {
   val WCU_Key = "geomesa.dynamodb.sft.wcu"
 
   val serId = "ser"
+  val fID = "fID"
 
   val geomesaKeyHash = "dtgandz2"
   val geomesaKeyRange = "z3andID"
@@ -206,18 +208,17 @@ object DynamoDBDataStore {
     SimpleFeatureTypes.createType(name.getURI, sft)
   }
 
-  private def getOrCreateCatalogTable(dynamoDB: DynamoDB, table: String, rcus: Long = 1L, wcus: Long = 1L) = {
-    val tables = dynamoDB.listTables().iterator()
-    val ret = tables
-      .find(_.getTableName == table)
-      .getOrElse(
-        dynamoDB.createTable(
-          table,
-          catalogKeySchema,
-          catalogAttributeDescriptions,
-          new ProvisionedThroughput(rcus, wcus)
-        )
-      )
+  private def getOrCreateCatalogTable(dynamoDB: AmazonDynamoDBAsyncClient, table: String, rcus: Long = 1L, wcus: Long = 1L): Table = {
+    val tables = dynamoDB.listTables().getTableNames.toList
+    if(!tables.contains(table)) {
+      val createTableRequest = new CreateTableRequest()
+        .withTableName(table)
+        .withKeySchema(catalogKeySchema)
+        .withAttributeDefinitions(catalogAttributeDescriptions)
+        .withProvisionedThroughput(new ProvisionedThroughput(rcus, wcus))
+      dynamoDB.createTable(createTableRequest)
+    }
+    val ret = new Table(dynamoDB, table)
     ret.waitForActive()
     ret
   }
@@ -234,12 +235,12 @@ object DynamoDBDataStore {
     new NameImpl(ns, name)
   }
 
-  def apply(catalog: String, dynamoDB: DynamoDB, catalog_rcus: Long, catalog_wcus: Long): DynamoDBDataStore = {
+  def apply(catalog: String, dynamoDB: AmazonDynamoDB, catalog_rcus: Long, catalog_wcus: Long): DynamoDBDataStore = {
     val catalog_pt = new ProvisionedThroughput(catalog_rcus, catalog_wcus)
     new DynamoDBDataStore(catalog, dynamoDB, catalog_pt)
   }
 
-  def apply(catalog: String, dynamoDB: DynamoDB, catalog_pt: ProvisionedThroughput): DynamoDBDataStore = {
+  def apply(catalog: String, dynamoDB: AmazonDynamoDB, catalog_pt: ProvisionedThroughput): DynamoDBDataStore = {
     new DynamoDBDataStore(catalog, dynamoDB, catalog_pt)
   }
 

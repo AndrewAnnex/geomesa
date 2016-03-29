@@ -11,6 +11,7 @@ package org.locationtech.geomesa.dynamodb.data
 import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, QueryOutcome}
 import org.geotools.data.store.{ContentEntry, ContentFeatureStore}
 import org.geotools.data.{FeatureReader, FeatureWriter, Query}
+import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -58,26 +59,37 @@ class DynamoDBFeatureStore(ent: ContentEntry)
   }
 
   def executeGeoTimeQuery(query: Query, plans: Iterator[HashAndRangeQueryPlan]): Iterator[SimpleFeature] = {
-    val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
-      val q = contentState.geoTimeQuery(r, l, u)
-      val res = contentState.table.query(q)
-      (c, res)
-    }
-    results.flatMap { case (contains, fut) =>
-      postProcess(query, contains, fut)
+    contentState.builderPool.withResource { builder =>
+      val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
+        val q = contentState.geoTimeQuery(r, l, u)
+        val res = contentState.table.query(q)
+        (c, res)
+      }
+      results.flatMap { case (contains, fut) =>
+        postProcess(query,  builder, contains, fut)
+      }
     }
   }
 
-  def postProcess(q: Query, contains: Boolean, fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
-    applyFilter(q, contains, fut.view.toIterator.map(convertItemToSF))
+  def postProcess(q: Query, builder: SimpleFeatureBuilder, contains: Boolean,  fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
+    applyFilter(q, contains, fut.view.toIterator.map(i => convertItemToSF(i, builder)))
   }
 
   override def getFeaturesInternal: Iterator[SimpleFeature] = {
-    contentState.table.scan(contentState.ALL_QUERY).iterator().map(convertItemToSF)
+    contentState.builderPool.withResource { builder =>
+      contentState.table.scan(contentState.ALL_QUERY).iterator().map {
+        i => convertItemToSF(i, builder)
+      }
+    }
   }
 
-  private def convertItemToSF(i: Item): SimpleFeature = {
-    contentState.serializer.deserialize(i.getBinary(DynamoDBDataStore.serId))
+  private def convertItemToSF(i: Item, builder: SimpleFeatureBuilder): SimpleFeature = {
+    val fid = i.getString(DynamoDBDataStore.fID)
+    val itemAttrs = i.asMap()
+    itemAttrs.remove(DynamoDBDataStore.fID)
+    val attrs = itemAttrs.valuesIterator.toArray
+    builder.reset()
+    builder.buildFeature(fid, attrs)
   }
 
   def planQuery(query: Query): Iterator[HashAndRangeQueryPlan] = {

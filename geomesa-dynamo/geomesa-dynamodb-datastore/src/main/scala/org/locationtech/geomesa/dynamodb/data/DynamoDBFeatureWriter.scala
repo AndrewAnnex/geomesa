@@ -20,7 +20,6 @@ import org.geotools.data.simple.SimpleFeatureWriter
 import org.joda.time.DateTime
 import org.locationtech.geomesa.dynamo.core.DynamoPrimaryKey
 import org.locationtech.geomesa.features.ScalaSimpleFeature
-import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.utils.text.WKBUtils
 import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -38,7 +37,6 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
 
   val dtgIndex = sft.getDtgIndex.get
   private[this] val attributeDescriptors = sft.getAttributeDescriptors.toList
-  private[this] val encoder = new KryoFeatureSerializer(sft)
   private[this] var curFeature: SimpleFeature = null
 
   def sft: SimpleFeatureType
@@ -75,7 +73,9 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
     val z3 = DynamoPrimaryKey.SFC3D.index(x, y, secondsInWeek)
     val z3idx = Longs.toByteArray(z3.z)
 
-    val range = Bytes.concat(z3idx, curFeature.getID.getBytes(StandardCharsets.UTF_8))
+    val fid = curFeature.getID
+
+    val range = Bytes.concat(z3idx, fid.getBytes(StandardCharsets.UTF_8))
 
     val primaryKey = new PrimaryKey(
       DynamoDBDataStore.geomesaKeyHash, hash,
@@ -84,13 +84,13 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
 
     val item = new Item().withPrimaryKey(primaryKey)
 
+    item.withString(DynamoDBDataStore.fID, fid)
+
     val attributes = curFeature.getAttributes.iterator()
     val descriptors = attributeDescriptors.iterator
     while (attributes.hasNext && descriptors.hasNext) {
       serialize(item, attributes.next(), descriptors.next())
     }
-
-    item.withBinary(DynamoDBDataStore.serId, encoder.serialize(curFeature))
 
     this.dynamoDBPut(table, item)
     curFeature = null

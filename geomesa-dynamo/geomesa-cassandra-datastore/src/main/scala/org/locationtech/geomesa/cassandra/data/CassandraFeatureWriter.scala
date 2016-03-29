@@ -14,12 +14,12 @@ import com.datastax.driver.core._
 import org.geotools.data.{FeatureWriter => FW}
 import org.joda.time.DateTime
 import org.locationtech.geomesa.dynamo.core.DynamoPrimaryKey
+import org.locationtech.geomesa.dynamo.core.FeatureSerializer.FieldSerializer
 import org.locationtech.geomesa.features.ScalaSimpleFeature
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 trait CassandraFeatureWriter extends FW[SimpleFeatureType, SimpleFeature] {
 
-  import CassandraDataStore._
   import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
   import scala.collection.JavaConversions._

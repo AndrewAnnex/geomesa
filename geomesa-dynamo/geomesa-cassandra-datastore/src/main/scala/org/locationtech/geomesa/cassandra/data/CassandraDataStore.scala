@@ -10,20 +10,18 @@ package org.locationtech.geomesa.cassandra.data
 
 import java.math.BigInteger
 import java.net.URI
-import java.nio.ByteBuffer
 import java.util
 import java.util.{Date, UUID}
 
 import com.datastax.driver.core._
 import com.google.common.collect.HashBiMap
-import com.vividsolutions.jts.geom.{Geometry, Point}
+import com.vividsolutions.jts.geom.Point
 import org.geotools.data.store._
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder
 import org.geotools.feature.{AttributeTypeBuilder, NameImpl}
 import org.locationtech.geomesa.dynamo.core.SchemaValidation
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType
-import org.locationtech.geomesa.utils.text.WKBUtils
-import org.opengis.feature.`type`.{AttributeDescriptor, Name}
+import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.SimpleFeatureType
 
 object CassandraDataStore {
@@ -62,32 +60,6 @@ object CassandraDataStore {
     val sft = sftBuilder.buildFeatureType()
     sft.getUserData.put(RichSimpleFeatureType.DEFAULT_DATE_KEY, dtgAttribute.getLocalName)
     sft
-  }
-
-  sealed trait FieldSerializer {
-    def serialize(o: java.lang.Object): java.lang.Object
-    def deserialize(o: java.lang.Object): java.lang.Object
-  }
-
-  case object GeomSerializer extends FieldSerializer {
-    override def serialize(o: Object): AnyRef = {
-      val geom = o.asInstanceOf[Point]
-      ByteBuffer.wrap(WKBUtils.write(geom))
-    }
-
-    override def deserialize(o: Object): AnyRef = WKBUtils.read(o.asInstanceOf[ByteBuffer].array())
-  }
-
-  case object DefaultSerializer extends FieldSerializer {
-    override def serialize(o: Object): AnyRef = o
-    override def deserialize(o: Object): AnyRef = o
-  }
-
-  object FieldSerializer {
-    def apply(attrDescriptor: AttributeDescriptor): FieldSerializer = {
-      if (classOf[Geometry].isAssignableFrom(attrDescriptor.getType.getBinding)) GeomSerializer
-      else DefaultSerializer
-    }
   }
 
 }

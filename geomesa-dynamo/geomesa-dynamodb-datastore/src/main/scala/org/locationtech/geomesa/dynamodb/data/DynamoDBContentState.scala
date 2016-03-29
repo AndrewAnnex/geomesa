@@ -8,6 +8,7 @@
 
 package org.locationtech.geomesa.dynamodb.data
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec}
 import com.amazonaws.services.dynamodbv2.document.{RangeKeyCondition, Table}
 import com.amazonaws.services.dynamodbv2.model.Select
@@ -15,18 +16,16 @@ import com.google.common.primitives.{Ints, Longs}
 import org.geotools.data.store.{ContentEntry, ContentState}
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.locationtech.geomesa.dynamo.core.DynamoContentState
-import org.locationtech.geomesa.features.kryo.KryoFeatureSerializer
 import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.simple.SimpleFeatureType
 
-class DynamoDBContentState(ent: ContentEntry, catalogTable: Table, sftTable: Table)
+class DynamoDBContentState(ent: ContentEntry, catalogTable: Table, sftTable: Table, client: AmazonDynamoDB)
   extends ContentState(ent) with DynamoContentState {
 
   val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalogTable)
   val table: Table = sftTable
   val builderPool = ObjectPoolFactory(getBuilder, 10)
-
-  val serializer = new KryoFeatureSerializer(sft)
+  val dynamodbClient = client
 
   val ALL_QUERY = new ScanSpec().withAttributesToGet(DynamoDBDataStore.serId)
 

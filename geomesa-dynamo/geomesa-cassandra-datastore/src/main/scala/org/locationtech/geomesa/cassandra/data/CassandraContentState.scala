@@ -11,8 +11,8 @@ package org.locationtech.geomesa.cassandra.data
 import com.datastax.driver.core._
 import org.geotools.data.store._
 import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.locationtech.geomesa.cassandra.data.CassandraDataStore.FieldSerializer
 import org.locationtech.geomesa.dynamo.core.DynamoContentState
+import org.locationtech.geomesa.dynamo.core.FeatureSerializer.FieldSerializer
 import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.simple.SimpleFeatureType
 
