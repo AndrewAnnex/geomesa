@@ -51,6 +51,11 @@
             <artifactId>aws-java-sdk-dynamodb</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-java8-compat_2.11</artifactId>
+            <version>0.7.0</version>
+        </dependency>
         <!-- Test dependencies -->
         <dependency>
             <groupId>junit</groupId>

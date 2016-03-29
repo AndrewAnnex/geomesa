@@ -8,7 +8,10 @@
 
 package org.locationtech.geomesa.dynamodb.data
 
+import java.util.concurrent.Future
+
 import com.amazonaws.services.dynamodbv2.document.{Item, ItemCollection, QueryOutcome}
+import com.amazonaws.services.dynamodbv2.model.{QueryRequest, QueryResult}
 import org.geotools.data.store.{ContentEntry, ContentFeatureStore}
 import org.geotools.data.{FeatureReader, FeatureWriter, Query}
 import org.geotools.feature.simple.SimpleFeatureBuilder
@@ -61,18 +64,24 @@ class DynamoDBFeatureStore(ent: ContentEntry)
   def executeGeoTimeQuery(query: Query, plans: Iterator[HashAndRangeQueryPlan]): Iterator[SimpleFeature] = {
     contentState.builderPool.withResource { builder =>
       val results = plans.map { case HashAndRangeQueryPlan(r, l, u, c) =>
-        val q = contentState.geoTimeQuery(r, l, u)
-        val res = contentState.table.query(q)
+        val qs = contentState.geoTimeQuery(r, l, u)
+        val q: QueryRequest = new QueryRequest().withTableName("")
+        val res = contentState.dynamodbClient.queryAsync(q)
         (c, res)
       }
+//      results.flatMap { case (contains, fut) =>
+//        postProcess(query,  builder, contains, fut)
+//      }
       results.flatMap { case (contains, fut) =>
-        postProcess(query,  builder, contains, fut)
+        postProcess(query, builder, contains, fut.get())
       }
     }
+
+
   }
 
-  def postProcess(q: Query, builder: SimpleFeatureBuilder, contains: Boolean,  fut: ItemCollection[QueryOutcome]): Iterator[SimpleFeature] = {
-    applyFilter(q, contains, fut.view.toIterator.map(i => convertItemToSF(i, builder)))
+  def postProcess(q: Query, builder: SimpleFeatureBuilder, contains: Boolean, fut: Future[QueryResult]): Iterator[SimpleFeature] = {
+    applyFilter(q, contains, fut..get().getItems.map(i => convertItemToSF(i, builder)))
   }
 
   override def getFeaturesInternal: Iterator[SimpleFeature] = {

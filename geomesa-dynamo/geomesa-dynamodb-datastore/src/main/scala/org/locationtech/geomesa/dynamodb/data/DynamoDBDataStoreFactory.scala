@@ -14,6 +14,7 @@ import java.lang.{Long => JLong}
 import java.util
 import java.util.Collections
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.{DataStore, DataStoreFactorySpi}
@@ -28,7 +29,7 @@ class DynamoDBDataStoreFactory extends DataStoreFactorySpi {
 
   override def createDataStore(params: util.Map[String, Serializable]): DataStore = {
     val catalog: String = CATALOG.lookUp(params).asInstanceOf[String]
-    val ddb: DynamoDB = DYNAMODBAPI.lookUp(params).asInstanceOf[DynamoDB]
+    val ddb: AmazonDynamoDBAsyncClient = DYNAMODBCLIENT.lookUp(params).asInstanceOf[AmazonDynamoDBAsyncClient]
     val rcus: Long = Option(CATALOG_RCUS.lookUp(params)).getOrElse(1L).asInstanceOf[JLong]
     val wcus: Long = Option(CATALOG_WCUS.lookUp(params)).getOrElse(1L).asInstanceOf[JLong]
 
@@ -50,7 +51,7 @@ class DynamoDBDataStoreFactory extends DataStoreFactorySpi {
 
 object DynamoDBDataStoreFactory {
   val CATALOG = new Param("geomesa.dynamodb.catalog", classOf[String], "DynamoDB table name", true)
-  val DYNAMODBAPI = new Param("geomesa.dynamodb.api", classOf[DynamoDB], "DynamoDB api instance", true)
+  val DYNAMODBCLIENT = new Param("geomesa.dynamodb.client", classOf[DynamoDB], "DynamoDB client instance", true)
   val CATALOG_RCUS =
     new Param(
       DynamoDBDataStore.RCU_Key,
@@ -64,9 +65,9 @@ object DynamoDBDataStoreFactory {
       "DynamoDB write capacity units for catalog table",
       false)
 
-  val PARAMS = Array(CATALOG, DYNAMODBAPI, CATALOG_RCUS, CATALOG_WCUS)
+  val PARAMS = Array(CATALOG, DYNAMODBCLIENT, CATALOG_RCUS, CATALOG_WCUS)
 
   def canProcessDynamo(params: util.Map[String, Serializable]): Boolean = {
-    params.containsKey(CATALOG.key) && params.containsKey(DYNAMODBAPI.key)
+    params.containsKey(CATALOG.key) && params.containsKey(DYNAMODBCLIENT.key)
   }
 }

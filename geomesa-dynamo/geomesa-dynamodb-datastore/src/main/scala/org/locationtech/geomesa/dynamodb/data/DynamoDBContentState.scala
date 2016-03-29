@@ -8,7 +8,7 @@
 
 package org.locationtech.geomesa.dynamodb.data
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient
 import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec}
 import com.amazonaws.services.dynamodbv2.document.{RangeKeyCondition, Table}
 import com.amazonaws.services.dynamodbv2.model.Select
@@ -19,7 +19,7 @@ import org.locationtech.geomesa.dynamo.core.DynamoContentState
 import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.simple.SimpleFeatureType
 
-class DynamoDBContentState(ent: ContentEntry, catalogTable: Table, sftTable: Table, client: AmazonDynamoDB)
+class DynamoDBContentState(ent: ContentEntry, catalogTable: Table, sftTable: Table, client: AmazonDynamoDBAsyncClient)
   extends ContentState(ent) with DynamoContentState {
 
   val sft: SimpleFeatureType = DynamoDBDataStore.getSchema(entry, catalogTable)

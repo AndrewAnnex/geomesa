@@ -217,7 +217,7 @@ class DynamoDBDataStoreIT {
     DataStoreFinder.getDataStore(
       Map(
         DynamoDBDataStoreFactory.CATALOG.getName -> s"ddbTest_${UUID.randomUUID().toString}",
-        DynamoDBDataStoreFactory.DYNAMODBAPI.getName -> DynamoDBDataStoreIT.getNewDynamoDB
+        DynamoDBDataStoreFactory.DYNAMODBCLIENT.getName -> DynamoDBDataStoreIT.getNewDynamoDB
       )
     )
   }
@@ -227,7 +227,7 @@ class DynamoDBDataStoreIT {
     DataStoreFinder.getDataStore(
       Map(
         DynamoDBDataStoreFactory.CATALOG.getName -> s"ddbTest_${UUID.randomUUID().toString}",
-        DynamoDBDataStoreFactory.DYNAMODBAPI.getName -> DynamoDBDataStoreIT.getNewDynamoDB,
+        DynamoDBDataStoreFactory.DYNAMODBCLIENT.getName -> DynamoDBDataStoreIT.getNewDynamoDB,
         DynamoDBDataStoreFactory.CATALOG_RCUS.getName -> 2l,
         DynamoDBDataStoreFactory.CATALOG_WCUS.getName -> 2l
       )

@@ -45,7 +45,7 @@ public class DynamoDBJavaDataStoreIT {
         Map<String, ?> params = ImmutableMap.of(
                 DynamoDBDataStoreFactory.CATALOG().getName(),
                 String.format("ddbtest%s", UUID.randomUUID().toString()),
-                DynamoDBDataStoreFactory.DYNAMODBAPI().getName(), getNewDynamoDB()
+                DynamoDBDataStoreFactory.DYNAMODBCLIENT().getName(), getNewDynamoDB()
         );
         return DataStoreFinder.getDataStore(params);
     }
