@@ -31,13 +31,84 @@ trait DynamoDBPutter {
   protected def dynamoDBPut(t: Table, i: Item): Unit = ???
 }
 
-trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
+trait DynamoDBItemSerialization {
+  import java.{lang => jl}
+
+  val jlBool = classOf[jl.Boolean]
+  val jlShort = classOf[jl.Short]
+  val jlInteger = classOf[jl.Integer]
+  val jlLong = classOf[jl.Long]
+  val jlFloat = classOf[jl.Float]
+  val jlDouble = classOf[jl.Double]
+  val jlString = classOf[jl.String]
+  val jlUUID = classOf[UUID]
+  val jlDate = classOf[java.util.Date]
+  val vsPoint = classOf[com.vividsolutions.jts.geom.Point]
+
+  def getSerializer(desc: AttributeDescriptor): (Item, AnyRef) => Unit = {
+    val name = desc.getLocalName
+    desc.getType.getBinding match {
+      case b if b.equals(jlBool)    => (item: Item, attr: AnyRef) => item.withBoolean(name, attr.asInstanceOf[jl.Boolean])
+      case s if s.equals(jlShort)   => (item: Item, attr: AnyRef) => item.withShort(name,   attr.asInstanceOf[jl.Short])
+      case i if i.equals(jlInteger) => (item: Item, attr: AnyRef) => item.withInt(name,     attr.asInstanceOf[jl.Integer])
+      case l if l.equals(jlLong)    => (item: Item, attr: AnyRef) => item.withLong(name,    attr.asInstanceOf[jl.Long])
+      case f if f.equals(jlFloat)   => (item: Item, attr: AnyRef) => item.withFloat(name,   attr.asInstanceOf[jl.Float])
+      case d if d.equals(jlDouble)  => (item: Item, attr: AnyRef) => item.withDouble(name,  attr.asInstanceOf[jl.Double])
+      case s if s.equals(jlString)  => (item: Item, attr: AnyRef) => item.withString(name,  attr.asInstanceOf[String])
+      case u if u.equals(jlUUID)    => (item: Item, attr: AnyRef) => item.withBinary(name,  encodeUUID(attr.asInstanceOf[UUID]))
+      case t if t.equals(jlDate)    => (item: Item, attr: AnyRef) => item.withLong(name,    encodeDate(attr.asInstanceOf[Date]))
+      case p if vsPoint.isAssignableFrom(p) => (item: Item, attr: AnyRef) => item.withBinary(name, encodeWKB(attr.asInstanceOf[Point]))
+      case _ => throw new Exception(s"Could not form serializer for feature attribute: $name of type: ${desc.getType.getName.toString}")
+    }
+  }
+
+  def getDeserializer(desc: AttributeDescriptor): (Item) => Object = {
+    val name = desc.getLocalName
+    desc.getType.getBinding match {
+      case b if b.equals(jlBool)    => item: Item => item.getBoolean(name).asInstanceOf[Object]
+      case s if s.equals(jlShort)   => item: Item => item.getShort(name).asInstanceOf[Object]
+      case i if i.equals(jlInteger) => item: Item => item.getInt(name).asInstanceOf[Object]
+      case l if l.equals(jlLong)    => item: Item => item.getLong(name).asInstanceOf[Object]
+      case f if f.equals(jlFloat)   => item: Item => item.getFloat(name).asInstanceOf[Object]
+      case d if d.equals(jlDouble)  => item: Item => item.getDouble(name).asInstanceOf[Object]
+      case s if s.equals(jlString)  => item: Item => item.getString(name)
+      case u if u.equals(jlUUID)    => item: Item => decodeUUID(item.getBinary(name))
+      case t if t.equals(jlDate)    => item: Item => decodeDate(item.getLong(name))
+      case p if vsPoint.isAssignableFrom(p) => item: Item => decodeWKB(item.getBinary(name))
+      case _ => throw new Exception(s"Could not form deserializer for feature attribute: $name of type: ${desc.getType.getName.toString}")
+    }
+  }
+
+  private def encodeDate(d: Date): Long = d.getTime
+
+  private def decodeDate(d: Long): Date = new Date(d)
+
+  private def encodeWKB(p: Point): Array[Byte] = WKBUtils.write(p)
+
+  private def decodeWKB(b: Array[Byte]): Point = WKBUtils.read(b).asInstanceOf[Point]
+
+  private def encodeUUID(uuid: UUID): ByteBuffer = {
+    ByteBuffer.allocate(16)
+      .putLong(uuid.getMostSignificantBits)
+      .putLong(uuid.getLeastSignificantBits)
+      .flip.asInstanceOf[ByteBuffer]
+  }
+
+  private def decodeUUID(b: Array[Byte]): UUID = {
+    val bb = ByteBuffer.wrap(b)
+    new UUID(bb.getLong, bb.getLong)
+  }
+
+}
+
+trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter with DynamoDBItemSerialization {
 
   import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType._
 
   val dtgIndex = sft.getDtgIndex.get
   private[this] val attributeDescriptors = sft.getAttributeDescriptors.toList
   private[this] var curFeature: SimpleFeature = null
+  private[this] val serializers = attributeDescriptors.map(getSerializer)
 
   def sft: SimpleFeatureType
 
@@ -87,56 +158,13 @@ trait DynamoDBFeatureWriter extends SimpleFeatureWriter with DynamoDBPutter {
     item.withString(DynamoDBDataStore.fID, fid)
 
     val attributes = curFeature.getAttributes.iterator()
-    val descriptors = attributeDescriptors.iterator
-    while (attributes.hasNext && descriptors.hasNext) {
-      serialize(item, attributes.next(), descriptors.next())
+    val serializer = serializers.iterator
+    while (attributes.hasNext && serializer.hasNext) {
+      serializer.next()(item, attributes.next())
     }
 
     this.dynamoDBPut(table, item)
     curFeature = null
-  }
-
-  private def serialize(item: Item, attr: AnyRef, desc: AttributeDescriptor) = {
-    import java.{lang => jl}
-    desc.getType.getBinding match {
-      case c if c.equals(classOf[jl.Boolean]) =>
-        item.withBoolean(desc.getLocalName, attr.asInstanceOf[jl.Boolean])
-
-      case c if c.equals(classOf[jl.Integer]) =>
-        item.withInt(desc.getLocalName, attr.asInstanceOf[jl.Integer])
-
-      case c if c.equals(classOf[jl.Long]) =>
-        item.withLong(desc.getLocalName, attr.asInstanceOf[jl.Long])
-
-      case c if c.equals(classOf[jl.Float]) =>
-        item.withFloat(desc.getLocalName, attr.asInstanceOf[jl.Float])
-
-      case c if c.equals(classOf[jl.Double]) =>
-        item.withDouble(desc.getLocalName, attr.asInstanceOf[jl.Double])
-
-      case c if c.equals(classOf[String]) =>
-        item.withString(desc.getLocalName, attr.asInstanceOf[String])
-
-      case c if c.equals(classOf[UUID]) =>
-        item.withBinary(desc.getLocalName, encodeUUID(attr.asInstanceOf[UUID]))
-
-      case c if c.equals(classOf[java.util.Date]) =>
-        item.withLong(desc.getLocalName, attr.asInstanceOf[java.util.Date].getTime)
-
-      case c if classOf[Point].isAssignableFrom(c) =>
-        item.withBinary(desc.getLocalName, WKBUtils.write(attr.asInstanceOf[Point]))
-
-      case _ =>
-        throw new Exception(s"Could not serialize feature attribute: ${desc.getLocalName} " +
-          s"of type: ${desc.getType.getName.toString}")
-    }
-  }
-
-  private def encodeUUID(uuid: UUID): ByteBuffer = {
-    ByteBuffer.allocate(16)
-      .putLong(uuid.getMostSignificantBits)
-      .putLong(uuid.getLeastSignificantBits)
-      .flip.asInstanceOf[ByteBuffer]
   }
 
 }

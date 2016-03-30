@@ -14,7 +14,6 @@ import org.geotools.data.{FeatureReader, FeatureWriter, Query}
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.locationtech.geomesa.dynamo.core.DynamoGeoQuery
-import org.locationtech.geomesa.utils.text.WKBUtils
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
@@ -22,7 +21,7 @@ import scala.collection.JavaConversions._
 class DynamoDBFeatureStore(ent: ContentEntry)
   extends ContentFeatureStore(ent, Query.ALL) with DynamoGeoQuery {
 
-  private lazy val contentState: DynamoDBContentState = {
+  lazy private val contentState: DynamoDBContentState = {
     entry.getState(getTransaction).asInstanceOf[DynamoDBContentState]
   }
 
@@ -86,13 +85,7 @@ class DynamoDBFeatureStore(ent: ContentEntry)
 
   private def convertItemToSF(i: Item, builder: SimpleFeatureBuilder): SimpleFeature = {
     val fid = i.getString(DynamoDBDataStore.fID)
-    val geom = WKBUtils.read(i.getBinary(contentState.geomField))
-    val itemAttrs = i.asMap()
-    itemAttrs.remove(DynamoDBDataStore.fID)
-    itemAttrs.remove(DynamoDBDataStore.geomesaKeyHash)
-    itemAttrs.remove(DynamoDBDataStore.geomesaKeyRange)
-    itemAttrs.remove(contentState.geomField)
-    val attrs = itemAttrs.valuesIterator.toArray ++ Array(geom)
+    val attrs = contentState.deserializers.map(f => f(i))
     builder.reset()
     builder.buildFeature(fid, attrs)
   }

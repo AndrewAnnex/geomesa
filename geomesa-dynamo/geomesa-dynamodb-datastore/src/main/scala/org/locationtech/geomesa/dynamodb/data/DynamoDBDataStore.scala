@@ -168,7 +168,7 @@ object DynamoDBDataStore {
   val WCU_Key = "geomesa.dynamodb.sft.wcu"
 
   val serId = "ser"
-  val fID = "fID"
+  val fID = "fid"
 
   val geomesaKeyHash = "dtgandz2"
   val geomesaKeyRange = "z3andID"
