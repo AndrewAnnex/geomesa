@@ -1,0 +1,5 @@
+# for cases when people are switching between *NIX, Win, Mac
+
+# Binary files
+*.png binary
+
