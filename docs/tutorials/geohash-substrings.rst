@@ -185,6 +185,6 @@ background:
 -  `Hilbert curve <http://en.wikipedia.org/wiki/Hilbert_curve>`__
 -  `GeoWave <https://github.com/ngageoint/geowave>`__
 
-.. |"Animation of Covering Geohashes"| image:: _static/img/tutorials/2014-08-05-geohash-substrings/sel-XXYYTT-11.png
+.. |"Animation of Covering Geohashes"| image:: _static/img/tutorials/2014-08-05-geohash-substrings/sel-xxyytt-11.png
    :target: _static/img/tutorials/2014-08-05-geohash-substrings/progression.ogv
 
