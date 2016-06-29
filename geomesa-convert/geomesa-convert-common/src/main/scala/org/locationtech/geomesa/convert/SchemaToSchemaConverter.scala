@@ -1,3 +1,11 @@
+/***********************************************************************
+* Copyright (c) 2013-2016 Commonwealth Computer Research, Inc.
+* All rights reserved. This program and the accompanying materials
+* are made available under the terms of the Apache License, Version 2.0
+* which accompanies this distribution and is available at
+* http://www.opensource.org/licenses/apache2.0.php.
+*************************************************************************/
+
 package org.locationtech.geomesa.convert
 
 import java.io.InputStream
@@ -17,11 +25,11 @@ class SchemaToSchemaConverterFactory extends SimpleFeatureConverterFactory[Simpl
     val inputSFTName = conf.getString("input-sft")
     val inputSFT = SimpleFeatureTypeLoader.sftForName(inputSFTName)
       .getOrElse(throw new IllegalArgumentException(s"Unable to load SFT for typeName $inputSFTName"))
-    val fields = buildFields(conf.getConfigList("fields"))
+    val outputFields = buildFields(conf.getConfigList("fields"))
     val idBuilder = buildIdBuilder(conf.getString("id-field"))
     val validating = isValidating(conf)
 
-    new SchemaToSchemaConverter(inputSFT, targetSft, fields, idBuilder, validating)
+    new SchemaToSchemaConverter(inputSFT, targetSft, outputFields, idBuilder, validating)
   }
 }
 
@@ -33,7 +41,9 @@ class SchemaToSchemaConverter(val inputSFT: SimpleFeatureType,
                                val validating: Boolean)
   extends ToSimpleFeatureConverter[SimpleFeature] {
 
-  override def fromInputType(i: SimpleFeature): Seq[Array[Any]] = Seq(i.getAttributes.toArray[Any])
+  override def fromInputType(i: SimpleFeature): Seq[Array[Any]] = {
+    Seq(i.getAttributes.toArray().asInstanceOf[Array[Any]])
+  }
 
   override def process(is: InputStream, ec: EvaluationContext): Iterator[SimpleFeature] = ???
 }
