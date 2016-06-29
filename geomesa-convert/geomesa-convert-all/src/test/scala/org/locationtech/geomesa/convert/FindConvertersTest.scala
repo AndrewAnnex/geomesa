@@ -37,6 +37,9 @@ class FindConvertersTest extends Specification {
       classOf[XMLConverter] must not(throwAn[ClassNotFoundException])
       classOf[XMLConverterFactory] must not(throwAn[ClassNotFoundException])
 
+      classOf[SchemaToSchemaConverter] must not(throwAn[ClassNotFoundException])
+      classOf[SchemaToSchemaConverterFactory] must not(throwAn[ClassNotFoundException])
+
       classOf[CompositeConverter[_]] must not(throwAn[ClassNotFoundException])
       classOf[CompositeConverterFactory[_]] must not(throwAn[ClassNotFoundException])
       classOf[SimpleFeatureConverterFactory[_]] must not(throwAn[ClassNotFoundException])
@@ -50,7 +53,8 @@ class FindConvertersTest extends Specification {
           classOf[DelimitedTextConverterFactory],
           classOf[XMLConverterFactory],
           classOf[JsonSimpleFeatureConverterFactory],
-          classOf[CompositeConverterFactory[_]]
+          classOf[CompositeConverterFactory[_]],
+          classOf[SchemaToSchemaConverterFactory]
         )
       )
     }
