@@ -19,9 +19,9 @@ class SchemaToSchemaConverterFactory extends SimpleFeatureConverterFactory[Simpl
       .getOrElse(throw new IllegalArgumentException(s"Unable to load SFT for typeName $inputSFTName"))
     val fields = buildFields(conf.getConfigList("fields"))
     val idBuilder = buildIdBuilder(conf.getString("id-field"))
-    val isValidating = isValidating(conf)
+    val validating = isValidating(conf)
 
-    new SchemaToSchemaConverter(inputSFT, targetSft, fields, idBuilder, isValidating)
+    new SchemaToSchemaConverter(inputSFT, targetSft, fields, idBuilder, validating)
   }
 }
 
@@ -33,7 +33,7 @@ class SchemaToSchemaConverter(val inputSFT: SimpleFeatureType,
                                val validating: Boolean)
   extends ToSimpleFeatureConverter[SimpleFeature] {
 
-  override def fromInputType(i: SimpleFeature): Seq[Array[Any]] = ???
+  override def fromInputType(i: SimpleFeature): Seq[Array[Any]] = Seq(i.getAttributes.toArray[Any])
 
   override def process(is: InputStream, ec: EvaluationContext): Iterator[SimpleFeature] = ???
 }
